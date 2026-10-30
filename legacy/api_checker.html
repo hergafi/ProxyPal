@@ -1,0 +1,1795 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Key Sentinel — Multi-Provider API Inspector</title>
+  <style>
+    /* -------------------------------------------------------------
+       STRICT SHARP CORNERS & BASE VARIABLES
+    ------------------------------------------------------------- */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      border-radius: 0px !important; /* Strict sharp corners policy */
+      margin: 0;
+      padding: 0;
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #090a0f;
+      --surface: #11131a;
+      --surface-elevated: #181b24;
+      --border: #262a38;
+      --border-focus: #4f5875;
+      --text: #e6e8f0;
+      --text-muted: #838a9e;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --success: #10b981;
+      --success-bg: rgba(16, 185, 129, 0.08);
+      --success-border: #059669;
+      --danger: #ef4444;
+      --danger-bg: rgba(239, 68, 68, 0.08);
+      --danger-border: #dc2626;
+      --warning: #f59e0b;
+      --warning-bg: rgba(245, 158, 11, 0.08);
+      --reasoning: #a855f7;
+      --reasoning-bg: rgba(168, 85, 247, 0.12);
+      --reasoning-border: #9333ea;
+      --mono-font: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+      --sans-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    :root[data-theme="light"] {
+      --bg: #f4f5f8;
+      --surface: #ffffff;
+      --surface-elevated: #f8f9fc;
+      --border: #d2d6e2;
+      --border-focus: #636b83;
+      --text: #0f121a;
+      --text-muted: #5f667a;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --success: #059669;
+      --success-bg: rgba(5, 150, 105, 0.08);
+      --success-border: #10b981;
+      --danger: #dc2626;
+      --danger-bg: rgba(220, 38, 38, 0.08);
+      --danger-border: #ef4444;
+      --warning: #d97706;
+      --warning-bg: rgba(217, 119, 6, 0.08);
+      --reasoning: #7e22ce;
+      --reasoning-bg: rgba(126, 34, 206, 0.08);
+      --reasoning-border: #a855f7;
+      --mono-font: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+      --sans-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--sans-font);
+      font-size: 14px;
+      line-height: 1.5;
+      padding: 24px;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* -------------------------------------------------------------
+       NAV & TOP BAR
+    ------------------------------------------------------------- */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+
+    .brand-title {
+      font-weight: 700;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-badge {
+      font-family: var(--mono-font);
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .controls-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    button, select, input {
+      font-family: inherit;
+      font-size: 13px;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      outline: none;
+      transition: all 0.15s ease;
+    }
+
+    button {
+      cursor: pointer;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    button:hover:not(:disabled) {
+      border-color: var(--border-focus);
+      background: var(--surface-elevated);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .btn-icon {
+      padding: 8px 10px;
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    .btn-icon.active {
+      background: var(--surface-elevated);
+      border-color: var(--accent);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: var(--accent);
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+
+    /* -------------------------------------------------------------
+       SETTINGS PANEL (CONFIG OVERLAY/EXPANDER)
+    ------------------------------------------------------------- */
+    .settings-panel {
+      display: none;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      border-top: none;
+      padding: 16px 20px;
+      gap: 16px;
+      flex-direction: column;
+    }
+
+    .settings-panel.is-open {
+      display: flex;
+    }
+
+    .settings-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .setting-item {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .setting-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .setting-desc {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .checkbox-custom {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      cursor: pointer;
+      display: grid;
+      place-content: center;
+      padding: 0;
+      margin: 0;
+    }
+
+    .checkbox-custom:checked {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .checkbox-custom:checked::before {
+      content: "✔";
+      font-size: 10px;
+      color: #fff;
+    }
+
+    /* -------------------------------------------------------------
+       KEY CONFIGURATION PANEL
+    ------------------------------------------------------------- */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 20px;
+    }
+
+    .panel-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    .grid-inputs {
+      display: grid;
+      grid-template-columns: 200px 1fr auto;
+      gap: 10px;
+    }
+
+    @media (max-width: 768px) {
+      .grid-inputs {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .input-key {
+      font-family: var(--mono-font);
+    }
+
+    .input-key:focus, select:focus {
+      border-color: var(--accent);
+    }
+
+    .security-notice {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: var(--mono-font);
+    }
+    .security-bullet {
+      width: 6px;
+      height: 6px;
+      background: var(--success);
+      display: inline-block;
+    }
+
+    /* -------------------------------------------------------------
+       PROGRESS BAR COMPONENT
+    ------------------------------------------------------------- */
+    .progress-container {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 16px;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      font-family: var(--mono-font);
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 6px;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      transition: width 0.2s cubic-bezier(0.1, 0.9, 0.2, 1);
+    }
+
+    /* -------------------------------------------------------------
+       SEARCH & FILTERS
+    ------------------------------------------------------------- */
+    .filter-bar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+
+    .search-box {
+      flex: 1;
+      min-width: 200px;
+      font-family: var(--mono-font);
+    }
+
+    .stats-counter {
+      font-size: 0.8rem;
+      font-family: var(--mono-font);
+      color: var(--text-muted);
+      display: flex;
+      gap: 16px;
+    }
+    .stats-counter span strong {
+      color: var(--text);
+    }
+
+    /* -------------------------------------------------------------
+       MODELS LIST CONTAINER & SMART SORT HIERARCHY
+    ------------------------------------------------------------- */
+    .models-list-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .model-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      transition: border-color 0.15s ease, opacity 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      cursor: pointer;
+    }
+
+    .model-card.status-working {
+      order: 1;
+      border-color: var(--success-border);
+      background: linear-gradient(90deg, var(--success-bg) 0%, var(--surface) 20%);
+    }
+
+    .model-card.status-testing {
+      order: 50;
+      border-color: var(--warning);
+    }
+
+    .model-card.status-failed {
+      order: 99;
+      opacity: 0.5;
+      border-color: var(--border);
+    }
+    .model-card.status-failed:hover {
+      opacity: 0.85;
+    }
+
+    .card-summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      gap: 12px;
+      user-select: none;
+    }
+
+    .card-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+      flex-wrap: nowrap;
+    }
+
+    .status-indicator {
+      width: 8px;
+      height: 8px;
+      flex-shrink: 0;
+      background: var(--border-focus);
+    }
+    .status-working .status-indicator { background: var(--success); }
+    .status-testing .status-indicator { background: var(--warning); animation: pulse 1s infinite; }
+    .status-failed .status-indicator { background: var(--danger); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .model-name {
+      font-family: var(--mono-font);
+      font-weight: 600;
+      font-size: 0.85rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .type-tag {
+      font-size: 0.65rem;
+      padding: 1px 4px;
+      font-family: var(--mono-font);
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
+    .reasoning-badge-inline {
+      font-size: 0.65rem;
+      padding: 1px 5px;
+      font-family: var(--mono-font);
+      background: var(--reasoning-bg);
+      border: 1px solid var(--reasoning-border);
+      color: var(--reasoning);
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .card-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: var(--mono-font);
+      font-size: 0.75rem;
+      flex-shrink: 0;
+    }
+
+    .latency-pill {
+      color: var(--text-muted);
+      min-width: 65px;
+      text-align: right;
+    }
+
+    .badge-status {
+      padding: 2px 6px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      border: 1px solid var(--border);
+    }
+    .status-working .badge-status {
+      background: var(--success-bg);
+      border-color: var(--success-border);
+      color: var(--success);
+    }
+    .status-failed .badge-status {
+      background: var(--danger-bg);
+      border-color: var(--danger-border);
+      color: var(--danger);
+    }
+    .status-testing .badge-status {
+      background: var(--warning-bg);
+      border-color: var(--warning);
+      color: var(--warning);
+    }
+
+    .caret-icon {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      transition: transform 0.2s ease;
+    }
+    .model-card.is-expanded .caret-icon {
+      transform: rotate(180deg);
+    }
+
+    /* -------------------------------------------------------------
+       EXPANDED METADATA GRID
+    ------------------------------------------------------------- */
+    .card-details {
+      display: none;
+      padding: 14px;
+      background: var(--surface-elevated);
+      border-top: 1px solid var(--border);
+      gap: 14px;
+      flex-direction: column;
+    }
+    .model-card.is-expanded .card-details {
+      display: flex;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+    }
+
+    .meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      background: var(--surface);
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+    }
+
+    .meta-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+
+    .meta-value {
+      font-family: var(--mono-font);
+      font-size: 0.8rem;
+      color: var(--text);
+      word-break: break-all;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .badge-reasoning-val {
+      color: var(--reasoning);
+      font-weight: 700;
+    }
+
+    .badge-standard-val {
+      color: var(--text-muted);
+    }
+
+    .details-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .btn-copy {
+      font-size: 0.75rem;
+      padding: 4px 8px;
+      font-family: var(--mono-font);
+    }
+
+    .log-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 8px;
+      font-family: var(--mono-font);
+      font-size: 0.72rem;
+      max-height: 120px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      color: var(--text-muted);
+    }
+
+    /* -------------------------------------------------------------
+       EMPTY STATE & UTILS
+    ------------------------------------------------------------- */
+    .empty-state {
+      padding: 40px;
+      text-align: center;
+      background: var(--surface);
+      border: 1px dashed var(--border);
+      color: var(--text-muted);
+      font-family: var(--mono-font);
+      font-size: 0.85rem;
+    }
+
+    [dir="rtl"] {
+      text-align: right;
+    }
+    [dir="rtl"] .card-right {
+      flex-direction: row-reverse;
+    }
+    [dir="rtl"] .details-actions {
+      justify-content: flex-start;
+    }
+  
+    .tabs { display:flex; gap:0; border:1px solid var(--border); background:var(--surface); margin-bottom:8px; }
+    .tab { flex:1; padding:12px; background:var(--surface-elevated); border:none; color:var(--text-muted); cursor:pointer; font-weight:600; text-transform:uppercase; font-size:.8rem; letter-spacing:.05em; }
+    .tab.active { background:var(--accent); color:#fff; }
+    .tabpanel { display:none; }
+    .tabpanel.active { display:block; }
+    .gw-card { background:var(--surface-elevated); border:1px solid var(--border); padding:12px; margin-bottom:8px; }
+
+  
+    .toast { position:fixed; bottom:20px; right:20px; background:var(--surface); border:1px solid var(--border); padding:12px 16px; box-shadow:0 4px 12px rgba(0,0,0,.3); z-index:9999; font-size:.85rem; max-width:320px; opacity:0; transition:opacity .2s; }
+    .toast.show { opacity:1; }
+    .toast.success { border-color:var(--success); }
+    .toast.error { border-color:var(--danger); }
+    .toast.info { border-color:var(--accent); }
+
+  </style>
+</head>
+<body>
+
+  <div class="container">
+
+  <div class="tabs">
+    <button class="tab active" data-tab="gateway">API FX Prod (Gateway)</button>
+    <button class="tab" data-tab="checker">API Checker</button>
+  </div>
+
+  <!-- Gateway Tab Panel -->
+  <div class="tabpanel active" id="tab-gateway">
+    <section class="panel" style="display:block">
+      <div class="panel-title">API FX Prod — Gateway Control (port 8787)</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <input id="gwKey" class="input-key" style="flex:1" placeholder="Paste API key (gsk_... / sk-or-...)" />
+        <select id="gwProvider"><option value="groq">Groq</option><option value="openrouter">OpenRouter</option></select>
+        <button class="btn-primary" type="button" onclick="gwAddKey()">Add Key</button>
+        <button type="button" onclick="gwUpdate()">Update APIs</button>
+        <button type="button" onclick="gwStatus()">Refresh Status</button>
+        <button type="button" onclick="gwHealth()">Health Check</button>
+      </div>
+      <div id="gwKeys" class="gw-card mono">No keys added</div>
+      <div class="gw-card">
+        <div><b>API Out (Unified):</b> <code id="apiOutUrl">http://localhost:8787/v1/chat/completions</code> <button type="button" onclick="navigator.clipboard.writeText('http://localhost:8787/v1/chat/completions')">Copy</button></div>
+      </div>
+      <div class="gw-card">
+        <div><b>Current Active Model:</b> <span id="activeModel">—</span></div>
+        <div><b>Failover Queue:</b> <span id="failoverQueue">—</span></div>
+      </div>
+      <div class="gw-card">
+        <div>Tokens Utilization: <span id="tokPct">0%</span></div>
+        <div style="background:var(--border);height:8px"><div id="tokBar" style="background:var(--accent);height:8px;width:0%"></div></div>
+        <div style="margin-top:6px">Requests Usage: <span id="reqPct">0%</span></div>
+        <div style="background:var(--border);height:8px"><div id="reqBar" style="background:var(--success);height:8px;width:0%"></div></div>
+      </div>
+      <div class="gw-card">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <label>Failover threshold: <input type="range" id="failoverSlider" min="1" max="100" value="90" oninput="document.getElementById('ftVal').textContent=this.value+'%'; setThreshold(this.value)" /> <span id="ftVal">90%</span></label>
+        </div>
+        <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+          <input id="sysPrompt" style="flex:2" placeholder="System prompt (model identity/role)" value="You are a helpful assistant." />
+          <input id="maxTokens" type="number" style="width:90px" value="256" placeholder="Max tokens" />
+          <select id="reasoningEffort"><option value="">Reasoning: auto</option><option value="low">low</option><option value="medium">medium</option><option value="high">high</option></select>
+          <input id="attachFile" type="file" accept="image/*,text/*" />
+          <button type="button" onclick="clearMemory()">Clear Memory</button>
+        </div>
+      </div>
+      <div class="gw-card" style="display:flex;flex-direction:column;height:420px">
+        <div style="font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:8px">Live Chat (API Out) <span id="statusPill" style="font-size:.7rem;padding:2px 8px;border:1px solid var(--border);background:var(--surf2)">idle</span></div>
+        <div id="chatLog" style="flex:1;overflow:auto;background:var(--bg);border:1px solid var(--border);padding:10px;margin-bottom:8px;font-family:var(--mono-font);font-size:.85rem"></div>
+        <div id="attachPreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px"></div>
+        <div style="display:flex;gap:8px">
+          <input id="chatInput" style="flex:1" placeholder="Type a message..." onkeydown="if(event.key==='Enter')sendChat()" />
+          <button class="btn-primary" onclick="sendChat()">Send</button>
+        </div>
+      </div>
+      <div id="gwStatusOut" class="gw-card"></div>
+      <pre id="gwHealthOut" class="log-box" style="max-height:400px"></pre>
+    </section>
+  </div>
+
+  <!-- Checker Tab Panel wrapper start -->
+  <div class="tabpanel" id="tab-checker">
+
+    <!-- Top Bar -->
+    <header>
+      <div class="brand-title">
+        <span>⚡ AI KEY SENTINEL</span>
+        <span class="brand-badge" data-i18n="tag">Client Engine</span>
+      </div>
+      <div class="controls-top">
+        <select id="langSelect" aria-label="Language Selector">
+          <option value="en">English (EN)</option>
+          <option value="ar">العربية (AR)</option>
+          <option value="fr">Français (FR)</option>
+        </select>
+        <button id="themeToggle" type="button" aria-label="Toggle Theme">
+          <span id="themeLabel">Light Mode</span>
+        </button>
+        <button id="btnConfig" class="btn-icon" type="button" title="Inspector Settings" aria-label="Settings">
+          ⚙️
+        </button>
+      </div>
+    </header>
+
+    <!-- Settings Panel -->
+    <section class="settings-panel" id="settingsPanel">
+      <div class="settings-title">
+        <span data-i18n="settingsTitle">Inspection & Payload Engine Settings</span>
+      </div>
+      <div class="settings-grid">
+        <div class="setting-item">
+          <label class="setting-label">
+            <input type="checkbox" id="settingFullScan" class="checkbox-custom" checked />
+            <span data-i18n="fullScanLabel">Full Scan Mode (allModes)</span>
+          </label>
+          <span class="setting-desc" data-i18n="fullScanDesc">
+            Enables smart detection of embeddings and all model archetypes with specialized payload routing.
+          </span>
+        </div>
+        <div class="setting-item">
+          <label class="setting-label" for="settingConcurrency">
+            <span data-i18n="concurrencyLabel">Concurrent Tests:</span>
+          </label>
+          <select id="settingConcurrency" style="width: 140px;">
+            <option value="1">1 (Conservative)</option>
+            <option value="3" selected>3 (Standard)</option>
+            <option value="5">5 (Aggressive)</option>
+          </select>
+          <span class="setting-desc" data-i18n="concurrencyDesc">
+            Parallel testing capacity to balance speed and provider rate limiting.
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Key & Provider Input Panel -->
+    <section class="panel">
+      <div class="panel-title" data-i18n="configTitle">API Authentication & Provider Configuration</div>
+      <div class="grid-inputs">
+        <select id="providerSelect" aria-label="Select Provider">
+          <option value="gemini">Google Gemini</option>
+          <option value="groq">Groq Cloud</option>
+          <option value="openai">OpenAI</option>
+          <option value="openrouter">OpenRouter</option>
+        </select>
+        <input 
+          type="password" 
+          id="apiKeyInput" 
+          class="input-key"
+          placeholder="Paste API key (AIzaSy... / gsk_... / sk-...)" 
+          autocomplete="off" 
+          spellcheck="false"
+        />
+        <button id="btnStartScan" class="btn-primary" type="button">
+          <span data-i18n="btnAnalyze">Fetch & Test Models</span>
+        </button>
+      </div>
+      <div class="security-notice">
+        <span class="security-bullet"></span>
+        <span data-i18n="secNotice">100% Client-Side Inspection. Credentials are never proxied or stored.</span>
+      </div>
+    </section>
+
+    <!-- Live Execution Progress Bar -->
+    <section class="progress-container" id="progressWrapper">
+      <div class="progress-header">
+        <span id="progressState" data-i18n="progStarting">Initializing scan...</span>
+        <span id="progressRatio">0 / 0 (0%)</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-bar-fill" id="progressBarFill"></div>
+      </div>
+    </section>
+
+    <!-- Filters and Results Counter -->
+    <div class="filter-bar">
+      <input 
+        type="text" 
+        id="searchFilter" 
+        class="search-box" 
+        placeholder="Filter models by ID..." 
+        data-i18n-ph="filterPlaceholder" 
+      />
+      <div class="stats-counter">
+        <span><span data-i18n="statWorking">Working:</span> <strong id="cntWorking">0</strong></span>
+        <span><span data-i18n="statFailed">Failed:</span> <strong id="cntFailed">0</strong></span>
+        <span><span data-i18n="statTotal">Total:</span> <strong id="cntTotal">0</strong></span>
+      </div>
+    </div>
+
+    <!-- Dynamic Models Output List -->
+    <main class="models-list-wrapper" id="modelsList">
+      <div class="empty-state" data-i18n="initialEmptyState">
+        Provide an API Key and click "Fetch & Test Models" to start the diagnostic scan.
+      </div>
+    </main>
+  </div>
+  </div>
+
+  <script>
+    /**
+     * AI Key Sentinel - Dynamic API Engine with Modality & Deep Reasoning Analysis
+     */
+    const TRANSLATIONS = {
+      en: {
+        tag: "Client Engine",
+        themeLight: "Light Mode",
+        themeDark: "Dark Mode",
+        configTitle: "API Authentication & Provider Configuration",
+        btnAnalyze: "Fetch & Test Models",
+        secNotice: "100% Client-Side Inspection. Credentials are never proxied or stored.",
+        progStarting: "Connecting to provider endpoint...",
+        progTesting: "Testing payload router:",
+        progDone: "Scan complete. All models tested.",
+        filterPlaceholder: "Filter models by ID...",
+        statWorking: "Working:",
+        statFailed: "Failed:",
+        statTotal: "Total:",
+        initialEmptyState: "Provide an API Key and click \"Fetch & Test Models\" to start the diagnostic scan.",
+        noResults: "No models match your search query.",
+        fetchingModels: "Fetching accessible model catalog...",
+        fetchError: "Failed to query provider models API. Check your key and network.",
+        statusOk: "WORKING",
+        statusErr: "FAILED",
+        statusTesting: "TESTING",
+        copyId: "Copy ID",
+        copied: "Copied!",
+        provName: "Provider",
+        ctxSize: "Context Limit",
+        maxOutput: "Max Output Tokens",
+        apiVersion: "API Version",
+        latencyMs: "Latency",
+        diagLog: "Execution Payload / Log",
+        modelType: "Model Type",
+        settingsTitle: "Inspection & Payload Engine Settings",
+        fullScanLabel: "Full Scan Mode (allModes)",
+        fullScanDesc: "Enables smart detection of embeddings and all model archetypes with specialized payload routing.",
+        concurrencyLabel: "Concurrent Tests:",
+        concurrencyDesc: "Parallel testing capacity to balance speed and provider rate limiting.",
+        modalitiesLabel: "Supported Modalities",
+        reasoningLabel: "Deep Reasoning / Thinking",
+        reasoningYes: "🧠 Yes / Deep Reasoning",
+        reasoningStandard: "Standard"
+      },
+      ar: {
+        tag: "محرك طرفي",
+        themeLight: "الوضع الفاتح",
+        themeDark: "الوضع الداكن",
+        configTitle: "مصادقة المفتاح وإعدادات المزود",
+        btnAnalyze: "جلب واختبار النماذج",
+        secNotice: "فحص محلي 100% عبر المتصفح. لا يتم إرسال أو تخزين المفتاح على خوادم وسيطة.",
+        progStarting: "جارٍ الاتصال بنقطة نهاية المزود...",
+        progTesting: "جارٍ فحص استجابة النموذج بالموجه الذكي:",
+        progDone: "اكتمل الفحص. تمت تجربة جميع النماذج.",
+        filterPlaceholder: "تصفية النماذج بالمعرّف...",
+        statWorking: "يعمل:",
+        statFailed: "فشل:",
+        statTotal: "الإجمالي:",
+        initialEmptyState: "أدخل مفتاح الواجهة واضغط على زر \"جلب واختبار النماذج\" لبدء الفحص.",
+        noResults: "لا توجد نماذج مطابقة لبحثك.",
+        fetchingModels: "جارٍ استيراد قائمة النماذج المتاحة...",
+        fetchError: "فشل استدعاء نماذج المزود. تحقق من صحة المفتاح والاتصال.",
+        statusOk: "يعمل بنجاح",
+        statusErr: "معطل/فشل",
+        statusTesting: "جارٍ الفحص",
+        copyId: "نسخ المعرّف",
+        copied: "تم النسخ!",
+        provName: "المزود",
+        ctxSize: "حد السياق",
+        maxOutput: "أقصى مخرجات",
+        apiVersion: "إصدار الواجهة",
+        latencyMs: "زمن الاستجابة",
+        diagLog: "حمولة الاختبار / السجل",
+        modelType: "نوع النموذج",
+        settingsTitle: "إعدادات محرك الفحص وتوجيه الحمولات",
+        fullScanLabel: "وضع الفحص الشامل (allModes)",
+        fullScanDesc: "تفعيل الاكتشاف التلقائي لنماذج التضمين (Embeddings) وتوجيه حمولاتها لتجنب أخطاء الفحص الزائفة.",
+        concurrencyLabel: "الفحوصات المتزامنة:",
+        concurrencyDesc: "عدد الطلبات المتزامنة لتفادي تجاوز معدلات الطلب المسموحة للمزود.",
+        modalitiesLabel: "وسائط الإدخال المدعومة",
+        reasoningLabel: "تفكير عميق (Deep Reasoning)",
+        reasoningYes: "🧠 نعم / تفكير عميق",
+        reasoningStandard: "قياسي (Standard)"
+      },
+      fr: {
+        tag: "Moteur Client",
+        themeLight: "Mode Clair",
+        themeDark: "Mode Sombre",
+        configTitle: "Authentification API & Configuration Fournisseur",
+        btnAnalyze: "Analyser les modèles",
+        secNotice: "Inspection 100% côté client. Vos identifiants ne sont jamais relayés ni stockés.",
+        progStarting: "Connexion au point de terminaison...",
+        progTesting: "Routage et test de charge utile:",
+        progDone: "Analyse terminée. Tous les modèles ont été testés.",
+        filterPlaceholder: "Filtrer les modèles par ID...",
+        statWorking: "Opérationnels:",
+        statFailed: "Échecs:",
+        statTotal: "Total:",
+        initialEmptyState: "Entrez une clé d'API et cliquez sur \"Analyser les modèles\" pour commencer.",
+        noResults: "Aucun modèle ne correspond à votre recherche.",
+        fetchingModels: "Récupération du catalogue de modèles...",
+        fetchError: "Échec de récupération. Vérifiez votre clé API et réseau.",
+        statusOk: "OPÉRATIONNEL",
+        statusErr: "ÉCHEC",
+        statusTesting: "TEST EN COURS",
+        copyId: "Copier l'ID",
+        copied: "Copié !",
+        provName: "Fournisseur",
+        ctxSize: "Fenêtre de Contexte",
+        maxOutput: "Tokens Max Sortie",
+        apiVersion: "Version API",
+        latencyMs: "Latence",
+        diagLog: "Charge utile / Journal d'exécution",
+        modelType: "Type de modèle",
+        settingsTitle: "Paramètres d'inspection et du routeur de charge utile",
+        fullScanLabel: "Mode Analyse Complète (allModes)",
+        fullScanDesc: "Active la détection intelligente des modèles d'embedding et le routage spécifique de charge utile.",
+        concurrencyLabel: "Requêtes Simultanées:",
+        concurrencyDesc: "Capacité de test parallèle pour gérer la vitesse et éviter les limites de taux (429).",
+        modalitiesLabel: "Modalités d'Entrée Supportées",
+        reasoningLabel: "Raisonnement Approfondi",
+        reasoningYes: "🧠 Oui / Raisonnement",
+        reasoningStandard: "Standard"
+      }
+    };
+
+    let currentLang = "en";
+    let activeModelsData = [];
+    let isExecuting = false;
+
+    // DOM Elements
+    const root = document.documentElement;
+    const themeToggleBtn = document.getElementById("themeToggle");
+    const themeLabel = document.getElementById("themeLabel");
+    const btnConfig = document.getElementById("btnConfig");
+    const settingsPanel = document.getElementById("settingsPanel");
+    const settingFullScan = document.getElementById("settingFullScan");
+    const settingConcurrency = document.getElementById("settingConcurrency");
+    const langSelect = document.getElementById("langSelect");
+    const providerSelect = document.getElementById("providerSelect");
+    const apiKeyInput = document.getElementById("apiKeyInput");
+    const btnStartScan = document.getElementById("btnStartScan");
+    const progressWrapper = document.getElementById("progressWrapper");
+    const progressBarFill = document.getElementById("progressBarFill");
+    const progressState = document.getElementById("progressState");
+    const progressRatio = document.getElementById("progressRatio");
+    const searchFilter = document.getElementById("searchFilter");
+    const modelsList = document.getElementById("modelsList");
+    const cntWorking = document.getElementById("cntWorking");
+    const cntFailed = document.getElementById("cntFailed");
+    const cntTotal = document.getElementById("cntTotal");
+
+    /* -------------------------------------------------------------
+       I18N & THEME INITIALIZATION
+    ------------------------------------------------------------- */
+    function setLanguage(lang) {
+      currentLang = lang;
+      root.setAttribute("lang", lang);
+      root.setAttribute("dir", lang === "ar" ? "rtl" : "ltr");
+
+      document.querySelectorAll("[data-i18n]").forEach(el => {
+        const key = el.getAttribute("data-i18n");
+        if (TRANSLATIONS[lang][key]) el.textContent = TRANSLATIONS[lang][key];
+      });
+
+      document.querySelectorAll("[data-i18n-ph]").forEach(el => {
+        const key = el.getAttribute("data-i18n-ph");
+        if (TRANSLATIONS[lang][key]) el.placeholder = TRANSLATIONS[lang][key];
+      });
+
+      updateThemeButtonText();
+    }
+
+    function toggleTheme() {
+      const active = root.getAttribute("data-theme");
+      const target = active === "dark" ? "light" : "dark";
+      root.setAttribute("data-theme", target);
+      updateThemeButtonText();
+    }
+
+    function updateThemeButtonText() {
+      const active = root.getAttribute("data-theme");
+      themeLabel.textContent = active === "dark" ? TRANSLATIONS[currentLang].themeLight : TRANSLATIONS[currentLang].themeDark;
+    }
+
+    themeToggleBtn.addEventListener("click", toggleTheme);
+    langSelect.addEventListener("change", (e) => setLanguage(e.target.value));
+
+    btnConfig.addEventListener("click", () => {
+      settingsPanel.classList.toggle("is-open");
+      btnConfig.classList.toggle("active");
+    });
+
+    /* -------------------------------------------------------------
+       METADATA INSPECTION ENGINE: MODALITIES & DEEP REASONING
+    ------------------------------------------------------------- */
+
+    /**
+     * Inspects supported input modalities based on provider metadata & intelligent mapping
+     */
+    function detectInputModalities(m, provider) {
+      const id = (m.id || m.name || "").toLowerCase();
+      const desc = (m.description || "").toLowerCase();
+
+      // Explicit OpenRouter architecture metadata if present
+      if (m.architecture?.modality) {
+        const mod = m.architecture.modality.toLowerCase();
+        if (mod.includes("multimodal") || (mod.includes("text") && mod.includes("image"))) {
+          return "Text, Vision";
+        }
+      }
+
+      // Audio-only models
+      if (id.includes("whisper") || id.includes("tts-")) {
+        return "Audio";
+      }
+
+      // Image generation only
+      if (id.includes("dall-e") || id.includes("imagen")) {
+        return "Text";
+      }
+
+      // Embeddings
+      if (id.includes("embedding") || id.includes("embed")) {
+        return "Text";
+      }
+
+      // Gemini Models
+      if (provider === "gemini") {
+        if (/gemini-1\.5|gemini-2\.0|gemini-exp/i.test(id)) {
+          return "Text, Vision, Audio, Video";
+        }
+        if (/gemini-1\.0-pro-vision/i.test(id)) {
+          return "Text, Vision";
+        }
+        return "Text";
+      }
+
+      // OpenAI Models
+      if (provider === "openai") {
+        if (/gpt-4o|gpt-4-turbo|gpt-4-vision|chatgpt-4o/i.test(id)) {
+          return "Text, Vision";
+        }
+        if (/^o1(\b|-)/i.test(id) && !id.includes("mini")) {
+          return "Text, Vision";
+        }
+        return "Text";
+      }
+
+      // Groq Cloud Models
+      if (provider === "groq") {
+        if (id.includes("vision")) {
+          return "Text, Vision";
+        }
+        return "Text";
+      }
+
+      // OpenRouter & Generic Fallback
+      if (/vision|vl|4o|claude-3|gemini-1\.5|gemini-2\.0|pixtral|llava/i.test(id) || desc.includes("multimodal")) {
+        return "Text, Vision";
+      }
+
+      return "Text";
+    }
+
+    /**
+     * Inspects whether the model possesses Deep Reasoning / Thinking capabilities
+     * (e.g. Gemini Thinking, OpenAI o1/o3, DeepSeek R1, QwQ, etc.)
+     */
+    function detectDeepReasoning(m) {
+      const id = (m.id || m.name || "").toLowerCase();
+      const desc = (m.description || "").toLowerCase();
+
+      // Key indicators of chain-of-thought/reasoning models
+      const reasoningRegex = /\b(o1|o3|r1|qwq)\b|thinking|reasoning|reasoner|deepseek-r1|marco-o1/i;
+      
+      if (reasoningRegex.test(id) || desc.includes("reasoning model") || desc.includes("thinking mode")) {
+        return true;
+      }
+      return false;
+    }
+
+    // Determine model type & routing endpoint archetype
+    function identifyModelType(m, provider) {
+      const id = (m.id || m.name || "").toLowerCase();
+      const methods = m.supportedGenerationMethods || [];
+
+      if (provider === "gemini") {
+        if (methods.includes("embedContent") && !methods.includes("generateContent")) {
+          return "embedding";
+        }
+        if (id.includes("embedding") || id.includes("text-embedding") || id.includes("embed-gecko")) {
+          return "embedding";
+        }
+      } else {
+        if (id.includes("embedding") || id.includes("embed") || id.includes("text-similarity")) {
+          return "embedding";
+        }
+      }
+
+      return "generation";
+    }
+
+    /* -------------------------------------------------------------
+       CATALOG RETRIEVAL WITH ENRICHED METADATA
+    ------------------------------------------------------------- */
+    async function fetchModelCatalog(provider, key, allModes) {
+      if (provider === "gemini") {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        const data = await res.json();
+        
+        let rawList = (data.models || []);
+        if (!allModes) {
+          rawList = rawList.filter(m => (m.supportedGenerationMethods || []).includes("generateContent"));
+        }
+
+        const mapped = rawList.map(m => {
+          const type = identifyModelType(m, "gemini");
+          const modalities = detectInputModalities(m, "gemini");
+          const isReasoning = detectDeepReasoning(m);
+          return {
+            id: m.name.replace(/^models\//, ""),
+            rawId: m.name,
+            provider: "Google Gemini",
+            contextWindow: m.inputTokenLimit || "N/A",
+            maxOutput: m.outputTokenLimit || "N/A",
+            apiVersion: "v1beta",
+            type: type,
+            modalities: modalities,
+            isReasoning: isReasoning
+          };
+        });
+
+        return deduplicateModels(mapped);
+      }
+
+      if (provider === "groq") {
+        const res = await fetch("https://api.groq.com/openai/v1/models", {
+          headers: { "Authorization": `Bearer ${key.trim()}` }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        const data = await res.json();
+        const rawList = (data.data || []).map(m => ({
+          id: m.id,
+          rawId: m.id,
+          provider: "Groq Cloud",
+          contextWindow: m.context_window || "N/A",
+          maxOutput: "N/A",
+          apiVersion: "v1",
+          type: identifyModelType(m, "groq"),
+          modalities: detectInputModalities(m, "groq"),
+          isReasoning: detectDeepReasoning(m)
+        }));
+        return deduplicateModels(rawList);
+      }
+
+      if (provider === "openai") {
+        const res = await fetch("https://api.openai.com/v1/models", {
+          headers: { "Authorization": `Bearer ${key.trim()}` }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        const data = await res.json();
+        
+        let list = data.data || [];
+        if (!allModes) {
+          list = list.filter(m => /gpt|o1|o3|chat/i.test(m.id));
+        }
+
+        const rawList = list.map(m => ({
+          id: m.id,
+          rawId: m.id,
+          provider: "OpenAI",
+          contextWindow: "Variable",
+          maxOutput: "N/A",
+          apiVersion: "v1",
+          type: identifyModelType(m, "openai"),
+          modalities: detectInputModalities(m, "openai"),
+          isReasoning: detectDeepReasoning(m)
+        }));
+        return deduplicateModels(rawList);
+      }
+
+      if (provider === "openrouter") {
+        const res = await fetch("https://openrouter.ai/api/v1/models", {
+          headers: { "Authorization": `Bearer ${key.trim()}` }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        const data = await res.json();
+        const rawList = (data.data || []).map(m => ({
+          id: m.id,
+          rawId: m.id,
+          provider: "OpenRouter",
+          contextWindow: m.context_length || "N/A",
+          maxOutput: m.top_provider?.max_completion_tokens || "N/A",
+          apiVersion: "v1",
+          type: identifyModelType(m, "openrouter"),
+          modalities: detectInputModalities(m, "openrouter"),
+          isReasoning: detectDeepReasoning(m)
+        }));
+        return deduplicateModels(rawList);
+      }
+
+      throw new Error("Unsupported Provider");
+    }
+
+    function deduplicateModels(models) {
+      const seen = new Set();
+      return models.filter(m => {
+        if (!m.id || seen.has(m.id)) return false;
+        seen.add(m.id);
+        return true;
+      });
+    }
+
+    /* -------------------------------------------------------------
+       SMART PAYLOAD ROUTER
+    ------------------------------------------------------------- */
+    async function testModelPayload(provider, key, modelObj) {
+      const startTime = performance.now();
+      try {
+        if (provider === "gemini") {
+          let endpoint = "";
+          let payload = {};
+
+          if (modelObj.type === "embedding") {
+            endpoint = `https://generativelanguage.googleapis.com/v1beta/${modelObj.rawId}:embedContent?key=${encodeURIComponent(key)}`;
+            payload = {
+              content: { parts: [{ text: "ping" }] }
+            };
+          } else {
+            endpoint = `https://generativelanguage.googleapis.com/v1beta/${modelObj.rawId}:generateContent?key=${encodeURIComponent(key)}`;
+            payload = {
+              contents: [{ parts: [{ text: "ping" }] }],
+              generationConfig: { maxOutputTokens: 1 }
+            };
+          }
+
+          const res = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          const latency = Math.round(performance.now() - startTime);
+          const body = await res.json();
+
+          if (!res.ok) {
+            return {
+              status: "FAILED",
+              code: res.status,
+              latency,
+              log: JSON.stringify({ error: body, routedType: modelObj.type }, null, 2)
+            };
+          }
+
+          return {
+            status: "WORKING",
+            code: 200,
+            latency,
+            log: JSON.stringify({ routedType: modelObj.type, response: body }, null, 2)
+          };
+        }
+
+        let url = "";
+        let payload = {};
+        let extraHeaders = {};
+
+        if (provider === "openrouter") {
+          extraHeaders["HTTP-Referer"] = window.location.origin;
+          extraHeaders["X-Title"] = "AI Key Sentinel";
+        }
+
+        if (modelObj.type === "embedding") {
+          if (provider === "groq") url = "https://api.groq.com/openai/v1/embeddings";
+          else if (provider === "openai") url = "https://api.openai.com/v1/embeddings";
+          else if (provider === "openrouter") url = "https://openrouter.ai/api/v1/embeddings";
+
+          payload = {
+            model: modelObj.id,
+            input: "ping"
+          };
+        } else {
+          if (provider === "groq") url = "https://api.groq.com/openai/v1/chat/completions";
+          else if (provider === "openai") url = "https://api.openai.com/v1/chat/completions";
+          else if (provider === "openrouter") url = "https://openrouter.ai/api/v1/chat/completions";
+
+          payload = {
+            model: modelObj.id,
+            messages: [{ role: "user", content: "hi" }],
+            max_tokens: 1
+          };
+        }
+
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${key.trim()}`,
+            ...extraHeaders
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const latency = Math.round(performance.now() - startTime);
+        const body = await res.json();
+
+        if (!res.ok) {
+          return {
+            status: "FAILED",
+            code: res.status,
+            latency,
+            log: JSON.stringify({ error: body, routedType: modelObj.type }, null, 2)
+          };
+        }
+
+        return {
+          status: "WORKING",
+          code: 200,
+          latency,
+          log: JSON.stringify({ routedType: modelObj.type, response: body }, null, 2)
+        };
+      } catch (err) {
+        const latency = Math.round(performance.now() - startTime);
+        return {
+          status: "FAILED",
+          code: "ERR",
+          latency,
+          log: err.message || "Network error / CORS issue."
+        };
+      }
+    }
+
+    /* -------------------------------------------------------------
+       UI RENDER WITH ENRICHED METADATA FIELDS
+    ------------------------------------------------------------- */
+    function renderModelCard(m) {
+      const card = document.createElement("div");
+      card.className = `model-card status-${m.status.toLowerCase()}`;
+      card.dataset.id = m.id;
+
+      if (m.status === "WORKING") card.style.order = "1";
+      else if (m.status === "TESTING") card.style.order = "50";
+      else card.style.order = "99";
+
+      const badgeText = m.status === "WORKING" 
+        ? TRANSLATIONS[currentLang].statusOk 
+        : (m.status === "FAILED" ? `${TRANSLATIONS[currentLang].statusErr} [${m.code || 'ERR'}]` : TRANSLATIONS[currentLang].statusTesting);
+
+      const reasoningBadgeHtml = m.isReasoning 
+        ? `<span class="reasoning-badge-inline" title="Deep Reasoning Model">THINKING</span>` 
+        : '';
+
+      const reasoningValueHtml = m.isReasoning
+        ? `<span class="badge-reasoning-val">${TRANSLATIONS[currentLang].reasoningYes}</span>`
+        : `<span class="badge-standard-val">${TRANSLATIONS[currentLang].reasoningStandard}</span>`;
+
+      card.innerHTML = `
+        <div class="card-summary">
+          <div class="card-left">
+            <div class="status-indicator"></div>
+            <span class="model-name" title="${escapeHtml(m.id)}">${escapeHtml(m.id)}</span>
+            <span class="type-tag">${escapeHtml(m.type || 'gen')}</span>
+            ${reasoningBadgeHtml}
+          </div>
+          <div class="card-right">
+            <span class="latency-pill">${m.latency ? m.latency + ' ms' : '--'}</span>
+            <span class="badge-status">${badgeText}</span>
+            <span class="caret-icon">&#x25BC;</span>
+          </div>
+        </div>
+        <div class="card-details">
+          <div class="meta-grid">
+            <div class="meta-item">
+              <span class="meta-label">${TRANSLATIONS[currentLang].provName}</span>
+              <span class="meta-value">${escapeHtml(m.provider)}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">${TRANSLATIONS[currentLang].modelType}</span>
+              <span class="meta-value">${escapeHtml((m.type || 'generation').toUpperCase())}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">${TRANSLATIONS[currentLang].modalitiesLabel}</span>
+              <span class="meta-value">${escapeHtml(m.modalities || 'Text')}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">${TRANSLATIONS[currentLang].reasoningLabel}</span>
+              <span class="meta-value">${reasoningValueHtml}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">${TRANSLATIONS[currentLang].ctxSize}</span>
+              <span class="meta-value">${escapeHtml(String(m.contextWindow))}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">${TRANSLATIONS[currentLang].maxOutput}</span>
+              <span class="meta-value">${escapeHtml(String(m.maxOutput))}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">${TRANSLATIONS[currentLang].apiVersion}</span>
+              <span class="meta-value">${escapeHtml(m.apiVersion)}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">${TRANSLATIONS[currentLang].latencyMs}</span>
+              <span class="meta-value">${m.latency ? m.latency + ' ms' : 'N/A'}</span>
+            </div>
+          </div>
+          
+          <div class="meta-label">${TRANSLATIONS[currentLang].diagLog}</div>
+          <pre class="log-box">${escapeHtml(m.log || 'No response captured.')}</pre>
+
+          <div class="details-actions">
+            <button class="btn-copy" type="button" data-copy="${escapeHtml(m.id)}">
+              ${TRANSLATIONS[currentLang].copyId}
+            </button>
+          </div>
+        </div>
+      `;
+
+      card.querySelector(".card-summary").addEventListener("click", () => {
+        card.classList.toggle("is-expanded");
+      });
+
+      const copyBtn = card.querySelector(".btn-copy");
+      copyBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const text = copyBtn.getAttribute("data-copy");
+        try {
+          await navigator.clipboard.writeText(text);
+          const orig = copyBtn.textContent;
+          copyBtn.textContent = TRANSLATIONS[currentLang].copied;
+          setTimeout(() => { copyBtn.textContent = orig; }, 1500);
+        } catch (err) {
+          console.error("Clipboard write failure", err);
+        }
+      });
+
+      return card;
+    }
+
+    function updateLiveView() {
+      const query = searchFilter.value.trim().toLowerCase();
+      modelsList.innerHTML = "";
+
+      let workingCount = 0;
+      let failedCount = 0;
+
+      const filtered = activeModelsData.filter(m => {
+        if (m.status === "WORKING") workingCount++;
+        if (m.status === "FAILED") failedCount++;
+        return m.id.toLowerCase().includes(query);
+      });
+
+      cntWorking.textContent = workingCount;
+      cntFailed.textContent = failedCount;
+      cntTotal.textContent = activeModelsData.length;
+
+      if (filtered.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "empty-state";
+        empty.textContent = activeModelsData.length === 0 
+          ? TRANSLATIONS[currentLang].initialEmptyState 
+          : TRANSLATIONS[currentLang].noResults;
+        modelsList.appendChild(empty);
+        return;
+      }
+
+      filtered.forEach(m => {
+        modelsList.appendChild(renderModelCard(m));
+      });
+    }
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    /* -------------------------------------------------------------
+       EXECUTION ORCHESTRATOR
+    ------------------------------------------------------------- */
+    btnStartScan.addEventListener("click", async () => {
+      const key = apiKeyInput.value.trim();
+      const provider = providerSelect.value;
+      const allModes = settingFullScan.checked;
+      const concurrency = parseInt(settingConcurrency.value, 10) || 3;
+
+      if (!key) {
+        apiKeyInput.focus();
+        return;
+      }
+
+      if (isExecuting) return;
+      isExecuting = true;
+      btnStartScan.disabled = true;
+      apiKeyInput.disabled = true;
+      providerSelect.disabled = true;
+
+      progressWrapper.style.display = "flex";
+      progressBarFill.style.width = "0%";
+      progressState.textContent = TRANSLATIONS[currentLang].fetchingModels;
+      progressRatio.textContent = "0%";
+
+      modelsList.innerHTML = "";
+      activeModelsData = [];
+      updateLiveView();
+
+      try {
+        const models = await fetchModelCatalog(provider, key, allModes);
+        
+        if (models.length === 0) {
+          progressState.textContent = "No accessible models found.";
+          isExecuting = false;
+          btnStartScan.disabled = false;
+          apiKeyInput.disabled = false;
+          providerSelect.disabled = false;
+          return;
+        }
+
+        activeModelsData = models.map(m => ({
+          ...m,
+          status: "TESTING",
+          latency: null,
+          log: "Testing payload queued..."
+        }));
+        updateLiveView();
+
+        const total = activeModelsData.length;
+        let completed = 0;
+        let cursor = 0;
+
+        async function worker() {
+          while (cursor < total) {
+            const index = cursor++;
+            const target = activeModelsData[index];
+
+            progressState.textContent = `${TRANSLATIONS[currentLang].progTesting} [${target.type}] ${target.id}`;
+            
+            const result = await testModelPayload(provider, key, target);
+
+            activeModelsData[index].status = result.status;
+            activeModelsData[index].code = result.code;
+            activeModelsData[index].latency = result.latency;
+            activeModelsData[index].log = result.log;
+
+            completed++;
+            const pct = Math.round((completed / total) * 100);
+            progressBarFill.style.width = `${pct}%`;
+            progressRatio.textContent = `${completed} / ${total} (${pct}%)`;
+
+            updateLiveView();
+          }
+        }
+
+        const workers = Array.from({ length: Math.min(concurrency, total) }, () => worker());
+        await Promise.all(workers);
+
+        progressState.textContent = TRANSLATIONS[currentLang].progDone;
+
+      } catch (err) {
+        console.error("Scan error", err);
+        progressState.textContent = `${TRANSLATIONS[currentLang].fetchError} [${err.message}]`;
+        progressBarFill.style.width = "100%";
+        progressBarFill.style.background = "var(--danger)";
+      } finally {
+        isExecuting = false;
+        btnStartScan.disabled = false;
+        apiKeyInput.disabled = false;
+        providerSelect.disabled = false;
+      }
+    });
+
+    searchFilter.addEventListener("input", updateLiveView);
+
+
+    // ---- Gateway tab logic ----
+    const GW='http://127.0.0.1:8787';
+    let gwKeys=[];
+    function gwAddKey(){
+      const k=document.getElementById('gwKey').value.trim();
+      const p=document.getElementById('gwProvider').value;
+      if(!k) return;
+      gwKeys.push({provider:p,key:k});
+      document.getElementById('gwKey').value='';
+      document.getElementById('gwKeys').innerHTML = gwKeys.map((k,i)=>`<div>${i+1}. ${k.provider}: ${k.key.slice(0,10)}...${k.key.slice(-4)}</div>`).join('')||'No keys';
+    }
+    async function gwUpdate(){
+      const groups={};
+      gwKeys.forEach(k=>{
+        if(!groups[k.provider]) groups[k.provider]={provider:k.provider,api_keys:[],base_url:k.provider==='groq'?'https://api.groq.com/openai/v1':'https://openrouter.ai/api/v1',models:[],quota_limit_requests:1000,quota_limit_tokens:100000,failover_threshold:0.9};
+        groups[k.provider].api_keys.push(k.key);
+      });
+      const r=await fetch(GW+'/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.values(groups))});
+      const d=await r.json();
+      document.getElementById('gwStatusOut').innerHTML='<pre class="log-box">'+JSON.stringify(d).slice(0,800)+'</pre>';
+      showToast('Config updated: '+d.providers.length+' providers','success');
+      beep(740,0.12,'sine',0.08);
+    }
+    async function gwStatus(){
+      const r=await fetch(GW+'/status'); const d=await r.json();
+      let html='<b>Providers:</b> '+d.providers.length+'<br>';
+      d.providers.forEach(p=>{html+=`<div>${p.provider}: ${p.models.length} models, ${p.api_keys.length} keys</div>`;});
+      const entries=Object.entries(d.quota).slice(0,30);
+      entries.forEach(([k,v])=>{html+=`<div class="quota">${k}: req=${v.requests} tok=${v.tokens} healthy=${v.healthy} lat=${v.latency_ms}ms</div>`;});
+      document.getElementById('gwStatusOut').innerHTML=html;
+      // widgets
+      let totTok=0,totReq=0,limitTok=100000,limitReq=1000;
+      d.providers.forEach(p=>{limitTok=p.quota_limit_tokens||limitTok; limitReq=p.quota_limit_requests||limitReq;});
+      Object.values(d.quota).forEach(v=>{totTok+=v.tokens||0; totReq+=v.requests||0;});
+      const tp=Math.min(100,Math.round(totTok/limitTok*100));
+      const rp=Math.min(100,Math.round(totReq/limitReq*100));
+      document.getElementById('tokPct').textContent=tp+'%';
+      document.getElementById('tokBar').style.width=tp+'%';
+      document.getElementById('reqPct').textContent=rp+'%';
+      document.getElementById('reqBar').style.width=rp+'%';
+      // active model + failover queue
+      const healthy=Object.entries(d.quota).filter(([k,v])=>v.healthy);
+      const active=healthy.length?healthy[0][0]:'none';
+      document.getElementById('activeModel').textContent=active;
+      document.getElementById('failoverQueue').textContent=healthy.slice(1,6).map(x=>x[0]).join(', ')||'—';
+    }
+    async function gwHealth(){
+      showToast('Health check started...','info');
+      beep(660,0.1,'sine',0.06);
+      document.getElementById('gwHealthOut').textContent='Running health check (background)...';
+      setTimeout(async ()=>{
+        try{
+          const r=await fetch(GW+'/health/refresh',{method:'POST'});
+          const d=await r.json();
+          const res=d.results; const ok=res.filter(x=>x.status==='WORKING').length;
+          let html=`Tested ${res.length}: Working ${ok}, Failed ${res.length-ok}
+`;
+          res.filter(x=>x.status==='WORKING').slice(0,60).forEach(x=>{html+=`WORKING ${x.provider} ${x.model} ${x.latency}ms
+`;});
+          document.getElementById('gwHealthOut').textContent=html;
+          showToast(`Health check done: ${ok} working`, ok>0?'success':'error');
+          beep(ok>0?880:330,0.18,'triangle',0.1);
+        }catch(e){ showToast('Health check failed: '+e.message,'error'); }
+      },50);
+    }
+    // tab switching
+    document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+      document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+      document.querySelectorAll('.tabpanel').forEach(x=>x.classList.remove('active'));
+      t.classList.add('active');
+      document.getElementById('tab-'+t.dataset.tab).classList.add('active');
+    }));
+
+
+    // ---- Sound effects via Web Audio ----
+    const audioCtx = (window.AudioContext||window.webkitAudioContext) ? new (window.AudioContext||window.webkitAudioContext)() : null;
+    function beep(freq=600, dur=0.12, type='sine', vol=0.08){
+      if(!audioCtx) return;
+      const o=audioCtx.createOscillator(); const g=audioCtx.createGain();
+      o.type=type; o.frequency.value=freq; g.gain.value=vol;
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(); o.stop(audioCtx.currentTime+dur);
+    }
+    let lastActive=null, lastTokPct=0;
+    let chatHistory=[];
+
+    async function setThreshold(v){
+      // update provider threshold via /config (reload current config first)
+      try{
+        const r=await fetch(GW+'/status'); const d=await r.json();
+        const cfg=d.providers.map(p=>({...p, failover_threshold: v/100}));
+        await fetch(GW+'/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
+      }catch(e){}
+    }
+
+    function clearMemory(){ chatHistory=[]; document.getElementById('chatLog').innerHTML=''; }
+
+    function fileToBase64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});}
+    async function sendChat(){
+      const inp=document.getElementById('chatInput');
+      const msg=inp.value.trim(); if(!msg && !document.getElementById('attachFile').files[0]) return;
+      // thumbnail preview
+      const f2=document.getElementById('attachFile').files[0];
+      const prev=document.getElementById('attachPreview');
+      if(f2 && f2.type.startsWith('image/')){
+        const url=URL.createObjectURL(f2);
+        prev.innerHTML=`<img src="${url}" style="max-height:80px;border:1px solid var(--border)" />`;
+      } else { prev.innerHTML=''; }
+      inp.value='';
+      const log=document.getElementById('chatLog');
+      log.innerHTML += `<div style="margin:4px 0"><b>You:</b> ${escapeHtml(msg)}</div>`;
+      const pill=document.getElementById('statusPill');
+      pill.textContent='🧠 thinking...'; pill.style.borderColor='var(--warning)';
+      log.scrollTop=log.scrollHeight;
+      // build user content with optional attachment
+      let userContent=msg;
+      const f=document.getElementById('attachFile').files[0];
+      if(f){
+        if(f.type.startsWith('image/')){
+          const b64=await fileToBase64(f);
+          userContent=[{type:'text',text:msg},{type:'image_url',image_url:{url:'data:'+f.type+';base64,'+b64}}];
+        } else {
+          const txt=await f.text();
+          userContent=msg+'\n\n[Attached file: '+f.name+']\n'+txt.slice(0,4000);
+        }
+      }
+      const sys=document.getElementById('sysPrompt').value.trim();
+      const msgs=[];
+      if(sys) msgs.push({role:'system',content:sys});
+      msgs.push(...chatHistory);
+      msgs.push({role:'user',content:userContent});
+      chatHistory.push({role:'user',content:msg});
+      document.getElementById('attachPreview').innerHTML='';
+      const maxT=parseInt(document.getElementById('maxTokens').value,10)||256;
+      const re=document.getElementById('reasoningEffort').value;
+      try{
+        const r=await fetch(GW+'/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:msgs,max_tokens:maxT,reasoning_effort:re||undefined,stream:true})});
+        const reader=r.body.getReader(); const dec=new TextDecoder();
+        pill.textContent='✍️ streaming...'; pill.style.borderColor='var(--success)';
+        let acc=''; const bubble=document.createElement('div'); bubble.style.cssText='margin:4px 0;color:var(--success)'; bubble.innerHTML='<b>AI:</b> '; log.appendChild(bubble);
+        while(true){const {done,value}=await reader.read(); if(done) break; acc+=dec.decode(value,{stream:true}); const m=acc.match(/"content":"([^"]*)"/g); if(m){bubble.innerHTML='<b>AI:</b> '+escapeHtml(m.map(x=>x.slice(11,-1)).join(''));} log.scrollTop=log.scrollHeight;}
+        chatHistory.push({role:'assistant',content:acc});
+        pill.textContent='idle'; pill.style.borderColor='var(--border)';
+        const model='stream';
+        // failover detection
+        if(lastActive && lastActive!==model){ beep(880,0.18,'triangle',0.12); log.innerHTML += `<div style="color:var(--warning);font-size:.75rem">[Failover → ${model}]</div>`; }
+        lastActive=model;
+      }catch(e){ log.innerHTML += `<div style="color:var(--danger)">Error: ${e.message}</div>`; }
+      log.scrollTop=log.scrollHeight;
+    }
+
+    // auto-refresh polling
+    setInterval(async ()=>{
+      try{
+        const r=await fetch(GW+'/status'); const d=await r.json();
+        let totTok=0,totReq=0,limitTok=100000,limitReq=1000;
+        d.providers.forEach(p=>{limitTok=p.quota_limit_tokens||limitTok; limitReq=p.quota_limit_requests||limitReq;});
+        Object.values(d.quota).forEach(v=>{totTok+=v.tokens||0; totReq+=v.requests||0;});
+        const tp=Math.min(100,Math.round(totTok/limitTok*100));
+        const rp=Math.min(100,Math.round(totReq/limitReq*100));
+        document.getElementById('tokPct').textContent=tp+'%';
+        document.getElementById('tokBar').style.width=tp+'%';
+        document.getElementById('reqPct').textContent=rp+'%';
+        document.getElementById('reqBar').style.width=rp+'%';
+        const healthy=Object.entries(d.quota).filter(([k,v])=>v.healthy);
+        const active=healthy.length?healthy[0][0]:'none';
+        document.getElementById('activeModel').textContent=active;
+        document.getElementById('failoverQueue').textContent=healthy.slice(1,6).map(x=>x[0]).join(', ')||'—';
+        // 90% warning
+        if(tp>=90 && lastTokPct<90){ beep(440,0.25,'square',0.12); document.getElementById('tokBar').style.background='var(--danger)'; }
+        else if(tp<90){ document.getElementById('tokBar').style.background='var(--accent)'; }
+        lastTokPct=tp;
+        // failover detection during polling
+        if(lastActive && active!==lastActive && active!=='none'){ beep(880,0.18,'triangle',0.12); }
+        if(active!=='none') lastActive=active;
+      }catch(e){}
+    }, 2000);
+
+
+    function showToast(msg,type='info',ms=3000){
+      const t=document.getElementById('toast');
+      t.textContent=msg; t.className='toast '+type+' show';
+      clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),ms);
+    }
+    // wrap gwAddKey/gwUpdate to notify
+    const _origAdd=gwAddKey;
+    gwAddKey=function(){ const k=document.getElementById('gwKey').value.trim(); if(!k){showToast('Enter a key first','error');return;} _origAdd(); showToast('Key added: '+k.slice(0,8)+'...','success'); };
+
+    // Initial setup
+    setLanguage("en");
+  </script>
+<div id="toast" class="toast"></div>
+</body>
+</html>

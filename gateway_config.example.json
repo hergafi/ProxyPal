@@ -1,0 +1,23 @@
+[
+  {
+    "provider": "groq",
+    "base_url": "https://api.groq.com/openai/v1",
+    "models": ["llama-3.3-70b-versatile"],
+    "api_keys": ["gsk_REPLACE_WITH_YOUR_KEY"],
+    "key_settings": {}
+  },
+  {
+    "provider": "openrouter",
+    "base_url": "https://openrouter.ai/api/v1",
+    "models": ["meta-llama/llama-3.3-70b-instruct"],
+    "api_keys": ["sk-or_REPLACE_WITH_YOUR_KEY"],
+    "key_settings": {}
+  },
+  {
+    "provider": "localai",
+    "base_url": "http://127.0.0.1:8080/v1",
+    "models": ["local-model-id"],
+    "api_keys": ["local_REPLACE_WITH_YOUR_KEY"],
+    "key_settings": {}
+  }
+]

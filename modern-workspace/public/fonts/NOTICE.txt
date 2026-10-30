@@ -1,0 +1,17 @@
+Self-hosted font subsets served from `modern-workspace/public/fonts/` so the app works offline.
+
+| Font | Weights shipped | License |
+| --- | --- | --- |
+| Cairo | 400 (arabic, latin) | SIL Open Font License 1.1 |
+| IBM Plex Sans Arabic | 400, 500, 600, 700 (arabic, latin) | SIL Open Font License 1.1 |
+| Noto Kufi Arabic | 400 (arabic, latin) | SIL Open Font License 1.1 |
+| Noto Naskh Arabic | 400 (arabic, latin) | SIL Open Font License 1.1 |
+| Tajawal | 400, 500, 700 (arabic, latin) | SIL Open Font License 1.1 |
+
+Files are `unicode-range` subsets generated from the Google Fonts static releases; each family's
+upstream repository carries the full `OFL.txt`. Bundled here as `.woff2` only — the 500/600/700
+faces that a family does not ship separately are reused from the 400 file, which is why some
+weights point at the same `.woff2`.
+
+Provider marks in the UI are simplified geometric glyphs drawn in `src/App.jsx`; they are not the
+providers' official logo files. All provider names and brands belong to their owners.

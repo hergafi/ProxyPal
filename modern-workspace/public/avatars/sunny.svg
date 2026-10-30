@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <defs>
+    <linearGradient id="sunny-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f59e0b"/>
+      <stop offset="1" stop-color="#ea580c"/>
+    </linearGradient>
+    <radialGradient id="sunny-glow" cx=".3" cy=".24" r=".85">
+      <stop offset="0" stop-color="#fef3c7" stop-opacity=".65"/>
+      <stop offset="1" stop-color="#fef3c7" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <circle cx="48" cy="48" r="48" fill="url(#sunny-bg)"/>
+  <circle cx="48" cy="48" r="48" fill="url(#sunny-glow)"/>
+  <g stroke="#fff7ed" stroke-width="4" stroke-linecap="round">
+    <path d="M48 9v7M48 80v7M9 48h7M80 48h7M20 20l5 5M71 71l5 5M20 76l5-5M71 25l5-5"/>
+  </g>
+  <circle cx="48" cy="48" r="24" fill="#fffbeb"/>
+  <circle cx="40" cy="45" r="2.6" fill="#c2410c"/>
+  <circle cx="56" cy="45" r="2.6" fill="#c2410c"/>
+  <path d="M40 55c4.4 4.6 11.6 4.6 16 0" fill="none" stroke="#c2410c" stroke-width="2.8" stroke-linecap="round"/>
+  <circle cx="34" cy="52" r="3.2" fill="#fdba74" opacity=".8"/>
+  <circle cx="62" cy="52" r="3.2" fill="#fdba74" opacity=".8"/>
+</svg>
