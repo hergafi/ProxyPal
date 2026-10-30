@@ -1,4 +1,4 @@
-# API FX Prod - Available Scripts
+# ProxyPal - Available Scripts
 
 <div dir="rtl">
 
@@ -147,7 +147,7 @@ npm run build
 ### **إنشاء اختصار على سطح المكتب**
 1. انقر بزر الماوس الأيمن على `run.bat`
 2. اختر "Send to" → "Desktop (create shortcut)"
-3. أعد تسمية الاختصار إلى "API FX Prod"
+3. أعد تسمية الاختصار إلى "ProxyPal"
 4. انقر نقراً مزدوجاً للتشغيل السريع!
 
 ---

@@ -1,8 +1,8 @@
 @echo off
-title API FX Prod - Docker Deploy
+title ProxyPal - Docker Deploy
 
 echo ========================================
-echo   API FX Prod - Docker Deployment
+echo   ProxyPal - Docker Deployment
 echo ========================================
 echo.
 

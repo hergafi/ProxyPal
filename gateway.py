@@ -1,17 +1,22 @@
 import asyncio
+import fnmatch
+import hmac
+import ipaddress
 import json
 import logging
 import os
 import re
+import secrets
+import socket
 import time
 from contextlib import asynccontextmanager
 from typing import Any, List, Literal, Optional
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import anyio
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -28,7 +33,44 @@ logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.INFO),
 logger = logging.getLogger('proxypal')
 STARTED_AT = time.time()
 GATEWAY_VERSION = 6  # Keep in sync with modern-workspace/src/App.jsx and run.bat.
-GATEWAY_TOKEN = os.getenv('GATEWAY_TOKEN', '').strip()
+TOKEN_PATH = os.getenv('GATEWAY_TOKEN_FILE') or os.path.join(os.path.dirname(__file__), 'data', '.gateway_token')
+
+
+def restrict_permissions(path):
+    """Keep runtime secrets readable only by the account running the gateway."""
+    if os.name == 'posix':
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            pass
+
+
+def load_gateway_token():
+    """A loopback gateway still needs a secret so other local pages cannot drive it."""
+    configured = os.getenv('GATEWAY_TOKEN', '').strip()
+    if configured:
+        return configured
+    try:
+        with open(TOKEN_PATH, encoding='utf-8') as file:
+            saved = file.read().strip()
+        if saved:
+            return saved
+    except OSError:
+        pass
+    token = secrets.token_urlsafe(32)
+    try:
+        os.makedirs(os.path.dirname(TOKEN_PATH) or '.', exist_ok=True)
+        descriptor = os.open(TOKEN_PATH, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(descriptor, 'w', encoding='utf-8') as file:
+            file.write(token)
+        restrict_permissions(TOKEN_PATH)
+        logger.info('Gateway token created; it is stored in %s', TOKEN_PATH)
+    except OSError:
+        logger.warning('Could not persist the gateway token in %s; it will change on restart', TOKEN_PATH)
+    return token
+
+
+GATEWAY_TOKEN = load_gateway_token()
 
 
 def load_config():
@@ -61,6 +103,7 @@ def load_config():
 def save_config(data):
     with open(CONFIG_PATH, 'w', encoding='utf-8') as file:
         json.dump(data, file, indent=2)
+    restrict_permissions(CONFIG_PATH)
 
 
 providers = load_config()
@@ -89,6 +132,7 @@ def credential_failure(status, detail=''):
 
 
 pool = APIPool(DB_PATH, lambda: providers, is_chat_model)
+restrict_permissions(DB_PATH)
 
 
 @asynccontextmanager
@@ -107,13 +151,17 @@ if os.path.isdir(STATIC_DIR):
 WORKSPACE_ROOT = os.path.realpath(os.getenv('WORKSPACE_ROOT')) if os.getenv('WORKSPACE_ROOT') else None
 
 
+def token_matches(request):
+    supplied = request.headers.get('authorization', '')
+    return hmac.compare_digest(supplied, 'Bearer ' + GATEWAY_TOKEN)
+
+
 @app.middleware('http')
 async def require_token(request, call_next):
     # The app shell itself stays reachable; its API calls still need the token.
     public = request.url.path in ('/', '/health') or request.url.path.startswith('/app')
-    if GATEWAY_TOKEN and request.method != 'OPTIONS' and not public:
-        if request.headers.get('authorization') != 'Bearer ' + GATEWAY_TOKEN:
-            return JSONResponse({'detail': 'Unauthorized'}, status_code=401)
+    if request.method != 'OPTIONS' and not public and not token_matches(request):
+        return JSONResponse({'detail': 'Unauthorized: missing or invalid gateway token'}, status_code=401)
     return await call_next(request)
 
 
@@ -282,10 +330,21 @@ async def startup():
     pool.snapshot()
 
 
+def loopback_request(request):
+    host = (request.headers.get('host') or '')
+    if host.startswith('['):
+        host = host.split(']', 1)[0] + ']'
+    else:
+        host = host.split(':', 1)[0]
+    return host.strip('[]').lower() in ('127.0.0.1', 'localhost', '::1')
+
+
 @app.get('/')
-async def root():
+async def root(request: Request):
     if os.path.isdir(STATIC_DIR):
-        return RedirectResponse('/app/')
+        # Only the browser on this machine gets the token handed to it once; remote
+        # clients still have to present it themselves.
+        return RedirectResponse('/app/?token=' + quote(GATEWAY_TOKEN, safe='') if loopback_request(request) else '/app/')
     return {'name': 'ProxyPal', 'status': 'running', 'providers': len(providers)}
 
 
@@ -332,6 +391,43 @@ async def update_settings(body: RoutingSettings):
     return safe_status()
 
 
+LOOPBACK_HOSTS = {'localhost', '127.0.0.1', '::1'}
+BLOCKED_ADDRESSES = (ipaddress.ip_network('169.254.0.0/16'), ipaddress.ip_network('fd00:ec2::254/128'))
+
+
+def blocked_address(value):
+    try:
+        address = ipaddress.ip_address(value.split('%', 1)[0])
+    except ValueError:
+        return False
+    return address.is_link_local or any(address in network for network in BLOCKED_ADDRESSES)
+
+
+async def resolves_to_blocked(host):
+    if blocked_address(host):
+        return True
+    try:
+        infos = await anyio.to_thread.run_sync(socket.getaddrinfo, host, None)
+    except OSError:
+        return False
+    return any(blocked_address(info[4][0]) for info in infos)
+
+
+async def validate_provider_url(url):
+    """A custom provider receives the user's key, so never send it over cleartext
+    to a remote host or to link-local/cloud-metadata addresses."""
+    parsed = urlparse(url)
+    if parsed.scheme not in ('http', 'https') or not parsed.netloc or parsed.username or parsed.password:
+        raise HTTPException(400, 'Base URL must be an http(s) URL without embedded credentials')
+    host = (parsed.hostname or '').lower()
+    if not host:
+        raise HTTPException(400, 'Base URL must include a host')
+    if parsed.scheme == 'http' and host not in LOOPBACK_HOSTS:
+        raise HTTPException(400, 'Remote providers must use https:// (http:// is allowed only for localhost)')
+    if await resolves_to_blocked(host):
+        raise HTTPException(400, 'This host address is not allowed (link-local or cloud metadata)')
+
+
 @app.post('/pool/providers')
 async def add_provider(body: NewProvider):
     name = body.name.strip().lower()
@@ -342,9 +438,7 @@ async def add_provider(body: NewProvider):
     if any(provider['provider'] == name for provider in providers):
         raise HTTPException(409, 'Provider already exists')
     url = body.base_url.strip().rstrip('/')
-    parsed = urlparse(url)
-    if parsed.scheme not in ('http', 'https') or not parsed.netloc or parsed.username or parsed.password:
-        raise HTTPException(400, 'Base URL must be an http(s) URL without embedded credentials')
+    await validate_provider_url(url)
     models = list(dict.fromkeys(model.strip() for model in body.models if model.strip() and is_chat_model(model)))
     if not models:
         raise HTTPException(400, 'Add at least one chat model id')
@@ -1049,8 +1143,56 @@ class WorkspaceReq(BaseModel):
     content: Optional[str] = None
 
 
+SNAPSHOT_MAX_FILES = 40
+SNAPSHOT_SKIP_DIRS = {'node_modules', '.git', '__pycache__', '.venv', 'venv', 'dist', 'build',
+                      '.ssh', '.aws', '.gnupg', '.docker'}
+SNAPSHOT_SKIP_NAMES = {'.npmrc', '.pypirc', '.netrc', '.git-credentials'}
+SNAPSHOT_SKIP_PATTERNS = ('id_rsa*', 'id_ed25519*', 'id_ecdsa*', '*.pem', '*.key', '*.p12', '*.pfx',
+                          '*.kdbx', '*.keystore', 'credentials*', '*secret*', '*token*',
+                          '*password*', '*.tfstate')
+HOME_ROOT = os.path.realpath(os.path.expanduser('~'))
+SYSTEM_ROOTS = tuple(os.path.realpath(path) for path in (
+    '/etc', '/usr', '/bin', '/sbin', '/lib', '/lib64', '/boot', '/dev', '/proc', '/sys', '/root',
+    'C:\\Windows', 'C:\\Program Files', 'C:\\Program Files (x86)', 'C:\\ProgramData',
+))
+
+
+def is_sensitive_root(root):
+    """The workspace snapshot sends file contents to a provider, so refuse folders
+    that hold the whole system or the user's entire profile."""
+    if root == HOME_ROOT:
+        return True
+    drive, tail = os.path.splitdrive(root)
+    if drive and not tail.strip('\\/'):
+        return True
+    if os.path.dirname(root) == root:
+        return True
+    for system in SYSTEM_ROOTS:
+        try:
+            if root == system or os.path.commonpath([system, root]) == system:
+                return True
+        except ValueError:
+            continue
+    return False
+
+
+def snapshot_skip_name(name):
+    lowered = name.lower()
+    if lowered.startswith('.env') or lowered in ('gateway_config.json', 'gateway.db', '.gateway_token'):
+        return True
+    if lowered in SNAPSHOT_SKIP_NAMES:
+        return True
+    return any(fnmatch.fnmatch(lowered, pattern) for pattern in SNAPSHOT_SKIP_PATTERNS)
+
+
+def looks_like_private_key(text):
+    return '-----BEGIN' in text and 'PRIVATE KEY' in text
+
+
 def workspace_root(path):
     root = os.path.realpath(path)
+    if is_sensitive_root(root):
+        raise HTTPException(403, 'This folder cannot be used as a workspace')
     if WORKSPACE_ROOT:
         try:
             allowed = os.path.commonpath([WORKSPACE_ROOT, root]) == WORKSPACE_ROOT
@@ -1095,6 +1237,8 @@ async def ws_read(req: WorkspaceReq):
 
 @app.post('/workspace/write')
 async def ws_write(req: WorkspaceReq):
+    if not WORKSPACE_ROOT:
+        raise HTTPException(403, 'Workspace writes require WORKSPACE_ROOT')
     full = workspace_file(req)
     if req.content is None:
         raise HTTPException(400, 'content required')
@@ -1115,25 +1259,33 @@ async def ws_snapshot(req: WorkspaceReq):
     if not os.path.isdir(root):
         raise HTTPException(400, 'Not a directory')
     files = []
+    skipped = 0
     for directory, subdirs, names in os.walk(root):
-        subdirs[:] = [d for d in subdirs if d not in ('node_modules', '.git', '__pycache__', '.venv', 'venv', 'dist', 'build')]
+        subdirs[:] = [d for d in subdirs if d not in SNAPSHOT_SKIP_DIRS]
         for name in names:
-            if name.startswith('.env') or name in ('gateway_config.json', 'gateway.db'):
+            if snapshot_skip_name(name):
+                skipped += 1
                 continue
             full = os.path.join(directory, name)
             try:
                 if not os.path.isfile(full) or os.path.getsize(full) > 400_000:
+                    skipped += 1
                     continue
                 if os.path.commonpath([root, os.path.realpath(full)]) != root:
+                    skipped += 1
                     continue
                 with open(full, encoding='utf-8') as file:
                     content = file.read(4000)
             except (OSError, UnicodeError, ValueError):
+                skipped += 1
+                continue
+            if looks_like_private_key(content):
+                skipped += 1
                 continue
             files.append({'path': os.path.relpath(full, root), 'content': content})
-            if len(files) >= 40:
-                return {'root': root, 'files': files}
-    return {'root': root, 'files': files}
+            if len(files) >= SNAPSHOT_MAX_FILES:
+                return {'root': root, 'files': files, 'skipped': skipped}
+    return {'root': root, 'files': files, 'skipped': skipped}
 
 
 if __name__ == '__main__':

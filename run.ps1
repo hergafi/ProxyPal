@@ -1,10 +1,10 @@
-# API FX Prod - Quick Start Script
+# ProxyPal - Quick Start Script
 # PowerShell version (more reliable than batch)
 
-$Host.UI.RawUI.WindowTitle = "API FX Prod - Starting..."
+$Host.UI.RawUI.WindowTitle = "ProxyPal - Starting..."
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  API FX Prod - Smart AI Gateway v2.0" -ForegroundColor Cyan
+Write-Host "  ProxyPal - Smart AI Gateway v2.0" -ForegroundColor Cyan
 Write-Host "  Starting development servers..." -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""

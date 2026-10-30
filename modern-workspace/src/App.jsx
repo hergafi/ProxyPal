@@ -666,6 +666,7 @@ export default function App() {
   const [testingModel, setTestingModel] = useState('')
   const [modelsUpdating, setModelsUpdating] = useState(false)
   const [connection, setConnection] = useState('connecting')
+  const [tokenDraft, setTokenDraft] = useState(() => localStorage.getItem(TOKEN_KEY) || '')
   const [staleGateway, setStaleGateway] = useState(false)
   const [online, setOnline] = useState(navigator.onLine)
   const [sidebarOpen, setSidebarOpen] = useState(() => !window.matchMedia('(max-width: 900px)').matches)
@@ -943,9 +944,12 @@ export default function App() {
         timeout = setTimeout(() => controller.abort(), busy ? 1900 : 4500)
         try {
           const response = await fetch(`${GW}/status?model=${encodeURIComponent(selectedModel)}`, { signal: controller.signal, cache: 'no-store', headers: authHeaders() })
-          if (!response.ok) throw new Error('Status unavailable')
-          const data = await response.json()
-          if (!cancelled) { applyStatus(data); setConnection('online') }
+          if (response.status === 401) { if (!cancelled) setConnection('unauthorized') }
+          else {
+            if (!response.ok) throw new Error('Status unavailable')
+            const data = await response.json()
+            if (!cancelled) { applyStatus(data); setConnection('online') }
+          }
         } catch { if (!cancelled) setConnection('offline') }
         finally { clearTimeout(timeout) }
       } else setConnection('offline')
@@ -1384,8 +1388,16 @@ export default function App() {
     finally { clearTimeout(timeout); if (mounted.current) setWorkspaceLoading(false) }
   }
 
+  function saveToken() {
+    const value = tokenDraft.trim()
+    try { localStorage.setItem(TOKEN_KEY, value) } catch { setStorageWarning(true) }
+    setConnection('connecting')
+    setPollRevision(v => v + 1)
+    notify(t('tokenSaved'))
+  }
+
   const visibleMessages = messages.map((message, index) => ({ message, index })).filter(({ message }) => !search.trim() || [textOf(message), message.reasoning || '', ...(message.attachments || []).map(a => a.name)].join(' ').toLowerCase().includes(search.trim().toLowerCase()))
-  const connectionLabel = !online ? t('noNetwork') : connection === 'online' ? t('gatewayConnected') : connection === 'connecting' ? t('gatewayConnecting') : t('gatewayDisconnected')
+  const connectionLabel = !online ? t('noNetwork') : connection === 'online' ? t('gatewayConnected') : connection === 'unauthorized' ? t('gatewayUnauthorized') : connection === 'connecting' ? t('gatewayConnecting') : t('gatewayDisconnected')
   const showSidebar = sidebarOpen && !focusMode
   const statusLabel = status === 'thinking' ? t('thinking') : status === 'streaming' ? t('typing') : t('ready')
   const voicesForLanguage = voices.filter(voice => voiceLang === 'auto' || voice.lang.toLowerCase().startsWith(SPEECH_CODES[voiceLang].split('-')[0]))
@@ -1431,7 +1443,8 @@ export default function App() {
         <div className="topbar-actions"><IconButton icon={mascot === 'hidden' ? 'eye' : mascot} label={mascot === 'hidden' ? t('showCompanion') : t('hideCompanion')} aria-pressed={mascot !== 'hidden'} onClick={() => pref('mascot', mascot === 'hidden' ? lastMascot.current : 'hidden')} /><IconButton icon={audioEnabled ? 'audio' : 'muted'} label={audioEnabled ? t('disableAudio') : t('enableAudio')} aria-pressed={audioEnabled} onClick={toggleAudio} /><IconButton icon={darkThemes.has(theme) ? 'sun' : 'moon'} label={darkThemes.has(theme) ? t('switchToLight') : t('switchToDark')} onClick={() => pref('theme', darkThemes.has(theme) ? 'light' : 'dark')} /><IconButton icon="focus" className="focus-toggle" label={focusMode ? t('showMenu') : t('hideMenu')} aria-pressed={focusMode} onClick={() => setFocusMode(v => !v)} /><IconButton icon="settings" label={t('settings')} className="mobile-settings" onClick={() => setSettings('general')} /></div>
       </header>
       <div className="conversation-toolbar"><div className="chat-breadcrumb"><Icon name="chat" size={15} /><span dir="auto">{conversation.title}</span></div><div className="toolbar-end"><label className="search-box"><Icon name="search" size={15} /><input aria-label={t('searchMessages')} placeholder={t('searchMessages')} value={search} dir="auto" onChange={e => setSearch(e.target.value)} />{search && <IconButton icon="close" label={t('clearSearch')} onClick={() => setSearch('')} />}</label><IconButton icon="download" label={t('exportConversation')} onClick={() => exportConversation()} /><span className="connection-label" role="status" aria-label={connectionLabel} title={connectionLabel}><span className={`connection-dot ${connection === 'online' && online ? 'connected' : ''}`} /><span>{connection === 'online' && online ? t('connected') : t('disconnected')}</span></span></div></div>
-      {connection !== 'online' && <div className="offline-banner" role="status"><Icon name="info" size={14} />{t('offlineBanner', { message: connectionLabel })}</div>}
+      {connection !== 'online' && connection !== 'unauthorized' && <div className="offline-banner" role="status"><Icon name="info" size={14} />{t('offlineBanner', { message: connectionLabel })}</div>}
+      {connection === 'unauthorized' && <div className="offline-banner" role="alert"><Icon name="info" size={14} />{t('tokenInvalid')}</div>}
       {connection === 'online' && staleGateway && <div className="offline-banner stale-banner" role="alert"><Icon name="info" size={14} />{t('staleGateway')}</div>}
       {storageWarning && <div className="offline-banner" role="alert">{t('storageWarning')}</div>}
       <div className="chat-scroll" ref={chatRef} onScroll={e => { const el = e.currentTarget; nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 140 }}>
@@ -1479,6 +1492,7 @@ export default function App() {
             <button className="button subtle" type="button" onClick={testVoice}><Icon name="audio" size={16} />{t('testVoice')}</button>
           </div>
         </section>
+        <section className="settings-section"><h3>{t('tokenSection')}</h3><p className="muted">{t('tokenHint')}</p>{connection === 'unauthorized' && <p className="budget-explanation"><Icon name="info" size={17} /><span>{t('tokenInvalid')}</span></p>}<div className="form-grid"><label className="field">{t('tokenField')}<input dir="ltr" type="password" autoComplete="off" spellCheck={false} value={tokenDraft} onChange={e => setTokenDraft(e.target.value)} placeholder={t('tokenPlaceholder')} /></label><button className="button subtle" type="button" disabled={!tokenDraft.trim()} onClick={saveToken}><Icon name="key" size={16} />{t('tokenSave')}</button></div></section>
         <section className="settings-section"><h3>{t('responseSection')}</h3><label className="field">{t('systemInstructions')}<textarea value={systemInstructions} disabled={busy} onChange={e => pref('systemInstructions', e.target.value)} rows={4} dir="auto" placeholder={t('systemPlaceholder')} /></label><div className="form-grid"><label className="field">Temperature · {temperature.toFixed(2)}<input type="range" min="0" max="2" step="0.05" value={temperature} disabled={busy} onChange={e => pref('temperature', Number(e.target.value))} /></label><label className="field">Top P · {topP.toFixed(2)}<input type="range" min="0.05" max="1" step="0.05" value={topP} disabled={busy} onChange={e => pref('topP', Number(e.target.value))} /></label></div></section>
         <details className="settings-section settings-fold"><summary><span className="fold-title"><Icon name="file" size={15} /><h3>{t('workspaceSection')}</h3></span><span className="fold-meta">{workspaceContext ? `${workspaceContext.name} · ${workspaceContext.count}` : t('optional')}<Icon name="chevron" size={15} /></span></summary><div className="fold-body"><p className="muted">{t('workspaceNote')}</p>{workspaceRoot && <p className="fold-root"><Icon name="globe" size={13} /><bdi>{t('workspaceRootHint', { root: workspaceRoot })}</bdi></p>}<form onSubmit={loadWorkspace}><label className="field">{t('workspacePath')}<input dir="ltr" value={preferences.workspacePath} disabled={busy || workspaceLoading} onChange={e => pref('workspacePath', e.target.value)} placeholder={workspaceRoot || 'C:/projects/my-app'} spellCheck={false} /></label><button className="button subtle" disabled={busy || workspaceLoading || !preferences.workspacePath.trim()}><Icon name="file" size={16} />{workspaceLoading ? t('loading') : t('loadContext')}</button></form>{workspaceContext && <button className="text-button" disabled={busy} onClick={() => setWorkspaceContext(null)}>{t('removeContext')}</button>}</div></details>
         <section className="settings-section"><h3>{t('privacySection')}</h3><p className="muted">{t('privacyNote')}</p><div className="button-row"><button className="button subtle" onClick={() => exportConversation('json')}><Icon name="download" size={16} />{t('exportJson')}</button><button className="button subtle" onClick={() => exportConversation('markdown')}>{t('exportMarkdown')}</button><button className="text-button" disabled={busy} onClick={() => { if (window.confirm(t('confirmDelete'))) { const remaining = conversations.filter(c => c.id !== conversationId); const next = remaining.length ? remaining : [newConversation(t)]; setConversations(next); setActiveId(next[0].id); setInput(''); setAttachments([]); setSearch(''); setEditingId(null); cancelSpeech() } }}><Icon name="trash" size={15} />{t('deleteConversation')}</button></div></section>

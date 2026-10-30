@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+from urllib.parse import quote
 
 import pytest
 from playwright.sync_api import expect, sync_playwright
@@ -8,6 +9,17 @@ from playwright.sync_api import expect, sync_playwright
 # Mocked tests run against the Vite dev server; the live test can target the built app.
 URL = os.environ.get('PROXYPAL_UI_URL', 'http://localhost:5173')
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def live_url():
+    """The live test must authenticate like the browser does when the gateway requires a token."""
+    stored = ROOT / 'data' / '.gateway_token'
+    token = stored.read_text(encoding='utf-8').strip() if stored.exists() else ''
+    if not token:
+        token = os.environ.get('GATEWAY_TOKEN', '').strip()
+    if not token:
+        return URL
+    return URL + ('&' if '?' in URL else '?') + 'token=' + quote(token)
 
 
 @pytest.fixture(scope='module')
@@ -209,7 +221,7 @@ def test_real_arabic_chat_history_and_both_themes(page):
     errors = []
     page.on('pageerror', lambda error: errors.append(str(error)))
     page.add_init_script(PROFILE_SCRIPT)
-    page.goto(URL)
+    page.goto(live_url())
     expect(page.locator('.model-trigger')).to_be_enabled(timeout=15000)
     page.locator('.model-trigger').click()
     options = page.locator('.model-option')

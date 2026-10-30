@@ -6,7 +6,10 @@
 *.env
 
 # Secrets / local runtime state (NEVER commit)
+data/*
+!data/.gitkeep
 gateway_config.json
+.gateway_token
 gateway.db
 *.db
 *.sqlite

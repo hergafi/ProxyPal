@@ -30,7 +30,6 @@ that way.
 | `modern-workspace/src/App.jsx` | The whole React UI: chat, settings, provider management, mascot, TTS. |
 | `modern-workspace/src/i18n.js` | Flat AR/EN/FR dictionaries — every locale must carry every key. |
 | `modern-workspace/src/index.css` | Styles, themes and RTL handling. |
-| `legacy/` | Superseded tools that the running app never loads. Not a supported entry point. |
 
 ## Environment
 

@@ -1,8 +1,8 @@
 @echo off
-title API FX Prod - Setup
+title ProxyPal - Setup
 
 echo ========================================
-echo   API FX Prod - Initial Setup
+echo   ProxyPal - Initial Setup
 echo ========================================
 echo.
 

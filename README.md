@@ -1,6 +1,6 @@
 # ProxyPal — دردشة بلا حدود بمفاتيحك الخاصة
 
-**ProxyPal AI v1.0** · بوابة ذكاء اصطناعي محلية تعمل بمفاتيحك أنت · local-first AI chat gateway
+**ProxyPal AI v1.0.1** · بوابة ذكاء اصطناعي محلية تعمل بمفاتيحك أنت · local-first AI chat gateway
 
 بوابة ذكاء اصطناعية محلية بواجهة عربية/إنجليزية/فرنسية. تدخل مفاتيحك مرة واحدة، ويوزّع
 التطبيق الطلبات بين المفاتيح والمزودين تلقائياً: إذا نفد مفتاح أو تعطّل أو وصل إلى حدّه،
@@ -115,7 +115,7 @@ backend/tests/        اختبارات المحرّك (mock) واختبارات 
 modern-workspace/     واجهة React 19 + Vite (بدون إطار CSS)
 docs/                 خطة التطوير، الأخطاء والإصلاحات، شرح السكربتات، اللقطات
 docs/screenshots/     لقطات الواجهة المعروضة أعلاه
-legacy/               أدوات قديمة متوقفة لا يحمّلها التطبيق
+data/                 يُنشأ فيه .gateway_token عند أول تشغيل (مستثنى من git)
 workspace/            مجلد فارغ تُركّب داخله المشاريع لميزة «سياق مجلد محلي» (Docker)
 run.bat restart.bat stop.bat setup.bat check.bat deploy.bat   سكربتات Windows
 Dockerfile docker-compose.yml         تشغيل معزول على loopback
@@ -134,15 +134,47 @@ Dockerfile docker-compose.yml         تشغيل معزول على loopback
 
 ## الأمان
 
+- البوابة تستمع على `127.0.0.1` فقط، ولا تُفتح على الشبكة.
+- عند أول تشغيل يُولَّد رمز وصول عشوائي ويُحفظ في `data/.gateway_token`، ويُطلب في كل
+  نداء API (`Authorization: Bearer <token>`) عدا `/health`. افتح `http://127.0.0.1:8790/`
+  مرة واحدة فيمنح المتصفح الرمز ويحفظه محلياً، أو الصقه في الإعدادات ← «الوصول إلى البوابة».
 - لا تُطبع المفاتيح في الواجهة أو السجلات؛ تُعرَّض مقنّعة (آخر 4 أحرف).
-- `.env` و`gateway_config.json` و`gateway.db` مستثناة من git ومن نسخة Docker.
-- الملف `gateway_config.example.json` يشرح شكل الإعداد بدون أي مفتاح حقيقي.
-- البوابة تستمع افتراضياً على `127.0.0.1` فقط.
-- اختيارياً: عيّن `GATEWAY_TOKEN` في `.env` ليتطلب كل نداء API ترويسة
-  `Authorization: Bearer <token>`. في وضع Docker افتح `http://127.0.0.1:8790/app/?token=...`
-  مرة واحدة؛ يُحفظ الرمز محلياً ويُزال من شريط العنوان.
-- `WORKSPACE_ROOT` يحصر ميزة قراءة مجلد المشروع داخل مسار محدد (مفيد في Docker).
+- ملف الإعداد وقاعدة البيانات (`gateway_config.json` و`gateway.db`) محصوران بحساب
+  المستخدم على Linux/macOS (`chmod 600`)، ومستثنيان من git ومن نسخة Docker.
+- `.env` و`data/` وملف الرمز مستثناة من git.
+- ميزة «سياق مجلد محلي» ترسل محتوى الملفات إلى المزود الذي تختاره؛ شارك مجلدات آمنة فقط.
+- الملفات الحساسة (مفاتيح SSH، شهادات، `.env`، `credentials*`، `*token*`، ملفات المفاتيح
+  الخاصة…) تُستثنى من اللقطة، لكن هذا إجراء احتياطي لا ضمان مطلق.
+- مجلد المنزل بالكامل، وجذر القرص، ومجلدات النظام مرفوضة كمساحة عمل.
+- المزود المخصص: المفتاح يُرسل إلى عنوان `base URL` الذي تدخله؛ لذلك يُشترط `https://`
+  للمزودين البعيدين (`http://` لمضيف محلي فقط)، وتُرفض عناوين link-local وcloud metadata
+  (`169.254.0.0/16` و`fd00:ec2::254`) حتى لو جاءت عبر اسم نطاق.
+- الكتابة إلى مجلد المشروع معطّلة ما لم تضبط `WORKSPACE_ROOT` صراحة.
 - للتبليغ عن ثغرة اقرأ [SECURITY.md](SECURITY.md) — لا تفتح issue علنياً.
+
+<details>
+<summary>Security (English)</summary>
+
+- The gateway listens on `127.0.0.1` only.
+- A random access token is generated on first start and stored in `data/.gateway_token`.
+  Every API call needs `Authorization: Bearer <token>` except `/health`. Opening
+  `http://127.0.0.1:8790/` once hands the token to the browser, which keeps it in
+  localStorage; it can also be pasted under Settings → Gateway access.
+- Keys are masked (last 4 characters) and never logged.
+- `gateway_config.json` and `gateway.db` are restricted to the user account on Linux/macOS
+  (`chmod 600`) and excluded from git and the Docker build.
+- The workspace feature sends file contents to the chosen provider, so only share folders
+  that are safe to send.
+- Sensitive files (SSH keys, certificates, `.env`, `credentials*`, `*token*`, private key
+  contents…) are excluded from snapshots, but that is a safety net, not a guarantee.
+- The user's home directory, drive/filesystem roots and system directories are refused.
+- Custom providers: the key is sent to whatever base URL you enter. Remote providers must
+  use `https://` (`http://` is allowed for localhost only), and link-local or cloud-metadata
+  addresses (`169.254.0.0/16`, `fd00:ec2::254`) are rejected even when reached through DNS.
+- Workspace writes are disabled unless `WORKSPACE_ROOT` is set explicitly.
+- Report vulnerabilities per [SECURITY.md](SECURITY.md), not in a public issue.
+
+</details>
 
 ## Docker
 
@@ -153,6 +185,10 @@ docker compose up --build
 
 - المنفذ مربوط بـ loopback فقط، والملفان `gateway_config.json` و`gateway.db` يُستخدمان
   من مجلد المشروع مباشرة، فلا تفقد مفاتيحك عند إعادة بناء الحاوية.
+- مجلد `data/` يُركّب على `/app/data`، فيبقى رمز الوصول `data/.gateway_token` صالحاً بعد
+  إعادة إنشاء الحاوية. افتح `http://127.0.0.1:8790/` مرة واحدة ليمنح المتصفح الرمز.
+- الحاوية تعمل بمستخدم غير جذري (`uid 10001`). على Linux، إن لم تستطع الكتابة في الملفات
+  المركّبة، امنحها الملكية: `sudo chown -R 10001:10001 gateway_config.json gateway.db data`.
 - مجلد `workspace/` (إن وُجد) يُعرض للقراءة فقط داخل `/workspace`. لاستخدام ميزة
   «سياق مجلد محلي» في Docker ضع مشروعك داخل `workspace/` واكتب مساره مثل
   `/workspace/my-app` (مسارات Windows الكاملة لا تعمل داخل الحاوية).
@@ -186,7 +222,8 @@ cd modern-workspace && npm run lint && npm run build
 ```
 
 اختبارات الواجهة تشغّل خادماً وهمياً (Mock) ولا تستهلك مفاتيح حقيقية، وتحتاج خادم
-التطوير على `http://localhost:5173`. المجموع الحالي: 55 اختباراً للمحرّك و21 للواجهة.
+التطوير على `http://localhost:5173`. المجموع الحالي: 60 اختباراً للمحرّك و21 للواجهة
+(يشمل اختبارات الرمز والصلاحيات وحدود مساحة العمل).
 لتشغيل الاختبار الحقيقي على تطبيق Docker: `PROXYPAL_UI_URL=http://127.0.0.1:8790/app/`.
 
 نماذج التفكير لدى Google تبثّ استدلالها داخل `content` مع علم `thought`؛ تمرره البوابة

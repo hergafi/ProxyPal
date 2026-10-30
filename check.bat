@@ -1,8 +1,8 @@
 @echo off
-title API FX Prod - System Check
+title ProxyPal - System Check
 
 echo ========================================
-echo   API FX Prod - System Check
+echo   ProxyPal - System Check
 echo ========================================
 echo.
 

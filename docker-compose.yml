@@ -10,11 +10,13 @@ services:
       DB_PATH: /data/gateway.db
       WORKSPACE_ROOT: /workspace
       ALLOWED_ORIGINS: http://127.0.0.1:8790,http://localhost:8790
-      # Optional shared secret. Leave empty for a purely local app.
+      # Optional fixed secret. When empty the gateway generates one on first start
+      # and stores it in data/.gateway_token on the host.
       GATEWAY_TOKEN: ${GATEWAY_TOKEN:-}
     volumes:
       - ./gateway_config.json:/data/gateway_config.json
       - ./gateway.db:/data/gateway.db
+      - ./data:/app/data
       # Read-only project view for the "load workspace" feature.
       - ./workspace:/workspace:ro
     security_opt:

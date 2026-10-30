@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import sqlite3
 import time
 
@@ -20,7 +21,8 @@ def setup(tmp_path, monkeypatch):
     monkeypatch.setattr(gateway, 'CONFIG_PATH', str(tmp_path / 'config.json'))
     pool = APIPool(str(tmp_path / 'pool.db'), lambda: gateway.providers, gateway.is_chat_model)
     monkeypatch.setattr(gateway, 'pool', pool)
-    return pool, providers, TestClient(gateway.app)
+    headers = {'Authorization': 'Bearer ' + gateway.GATEWAY_TOKEN}
+    return pool, providers, TestClient(gateway.app, headers=headers)
 
 
 def mock_provider(monkeypatch, handler):
@@ -819,3 +821,67 @@ def test_gemini_model_prefixes_are_normalized_on_load(tmp_path, monkeypatch):
     loaded = gateway.load_config()
     assert loaded[0]['models'] == ['gemini-2.5-flash', 'gemini-2.5-pro']
     assert json.loads(config.read_text(encoding='utf-8'))[0]['models'] == ['gemini-2.5-flash', 'gemini-2.5-pro']
+
+
+def test_gateway_token_is_required_on_api_routes(setup):
+    pool, providers, _ = setup
+    client = TestClient(gateway.app)
+    chat = {'model': 'model-a', 'messages': [{'role': 'user', 'content': 'Hello'}]}
+    assert client.get('/health').status_code == 200
+    assert client.post('/v1/chat/completions', json=chat).status_code == 401
+    assert client.post('/workspace/snapshot', json={'path': '.'}).status_code == 401
+    assert client.get('/status', headers={'Authorization': 'Bearer wrong-token'}).status_code == 401
+    assert client.get('/status').status_code == 401
+    correct = {'Authorization': 'Bearer ' + gateway.GATEWAY_TOKEN}
+    assert client.get('/status', headers=correct).status_code == 200
+    assert client.get('/v1/models', headers=correct).status_code == 200
+
+
+def test_workspace_snapshot_skips_keys_and_secret_like_files(setup, monkeypatch, tmp_path):
+    pool, providers, client = setup
+    root = tmp_path / 'workspace'
+    root.mkdir()
+    (root / 'main.py').write_text('print(1)', encoding='utf-8')
+    (root / 'id_rsa').write_text('ssh-private', encoding='utf-8')
+    (root / 'credentials.json').write_text('{}', encoding='utf-8')
+    (root / 'api_token.txt').write_text('token', encoding='utf-8')
+    (root / '.npmrc').write_text('//registry:_authToken=secret', encoding='utf-8')
+    (root / 'notes.txt').write_text('-----BEGIN RSA PRIVATE KEY-----\nabc', encoding='utf-8')
+    monkeypatch.setattr(gateway, 'WORKSPACE_ROOT', str(root))
+    data = client.post('/workspace/snapshot', json={'path': str(root)}).json()
+    assert [item['path'] for item in data['files']] == ['main.py']
+    assert data['skipped'] >= 5
+
+
+def test_workspace_root_rejects_home_and_filesystem_root(setup, monkeypatch):
+    pool, providers, client = setup
+    monkeypatch.setattr(gateway, 'WORKSPACE_ROOT', None)
+    home = os.path.realpath(os.path.expanduser('~'))
+    assert client.post('/workspace/list', json={'path': home}).status_code == 403
+    assert client.post('/workspace/list', json={'path': os.path.abspath(os.sep)}).status_code == 403
+
+
+def test_workspace_write_requires_explicit_workspace_root(setup, monkeypatch, tmp_path):
+    pool, providers, client = setup
+    sandbox = tmp_path / 'sandbox'
+    sandbox.mkdir()
+    (sandbox / 'note.txt').write_text('before', encoding='utf-8')
+    payload = {'path': str(sandbox), 'filename': 'note.txt', 'content': 'after'}
+    monkeypatch.setattr(gateway, 'WORKSPACE_ROOT', None)
+    assert client.post('/workspace/write', json=payload).status_code == 403
+    assert (sandbox / 'note.txt').read_text(encoding='utf-8') == 'before'
+    monkeypatch.setattr(gateway, 'WORKSPACE_ROOT', str(sandbox))
+    assert client.post('/workspace/write', json=payload).status_code == 200
+    assert (sandbox / 'note.txt').read_text(encoding='utf-8') == 'after'
+
+
+def test_custom_provider_url_requires_https_and_blocks_metadata(setup):
+    pool, providers, client = setup
+    payload = {'name': 'remote', 'base_url': 'http://example.com/v1', 'models': ['model-x']}
+    assert client.post('/pool/providers', json=payload).status_code == 400
+    payload['base_url'] = 'http://169.254.169.254/latest'
+    assert client.post('/pool/providers', json=payload).status_code == 400
+    payload['base_url'] = 'https://169.254.169.254/v1'
+    assert client.post('/pool/providers', json=payload).status_code == 400
+    payload['base_url'] = 'http://127.0.0.1:8080/v1'
+    assert client.post('/pool/providers', json=payload).status_code == 200

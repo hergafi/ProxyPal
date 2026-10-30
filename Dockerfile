@@ -20,7 +20,10 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 COPY gateway.py api_pool.py ./
 COPY --from=frontend-build /build/dist ./static
-RUN mkdir -p /data /workspace
+RUN mkdir -p /data /workspace \
+    && useradd --system --uid 10001 --user-group --home-dir /app --shell /usr/sbin/nologin proxypal \
+    && chown -R proxypal:proxypal /app /data /workspace
+USER proxypal
 EXPOSE 8790
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8790/health', timeout=3)"

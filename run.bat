@@ -3,7 +3,7 @@ cd /d "%~dp0"
 title ProxyPal - Starting...
 
 echo ========================================
-echo   API FX Prod - Smart AI Gateway
+echo   ProxyPal - Smart AI Gateway
 echo   Starting development servers...
 echo ========================================
 echo.
@@ -72,7 +72,7 @@ if errorlevel 2 (
     exit /b 1
 )
 if errorlevel 1 (
-    start "API-FX-Backend" cmd /k "python gateway.py"
+    start "ProxyPal-Backend" cmd /k "python gateway.py"
 )
 goto wait_backend
 
@@ -101,7 +101,7 @@ if errorlevel 2 (
     exit /b 1
 )
 if errorlevel 1 (
-    start "API-FX-Frontend" cmd /k "cd modern-workspace && npm run dev -- --strictPort"
+    start "ProxyPal-Frontend" cmd /k "cd modern-workspace && npm run dev -- --strictPort"
 )
 powershell -NoProfile -Command "$ready = $false; for ($i=0; $i -lt 30; $i++) { try { $r = Invoke-WebRequest 'http://localhost:5173/' -TimeoutSec 1 -UseBasicParsing; if ($r.Content -match 'ProxyPal') { $ready = $true; break } } catch {}; Start-Sleep -Milliseconds 200 }; if (-not $ready) { exit 1 }"
 if errorlevel 1 (

@@ -18,15 +18,19 @@ use GitHub's *Report a vulnerability* form, and include the version shown by `GE
 | Key logging | Only SHA-256 key identities and provider names reach logs. |
 | Network exposure | `GATEWAY_HOST` defaults to `127.0.0.1`; the Docker compose file publishes `127.0.0.1:8790` only. |
 | Cross-origin | `ALLOWED_ORIGINS` is an explicit list; requests from other origins are rejected. |
-| Optional auth | Set `GATEWAY_TOKEN` to require `Authorization: Bearer <token>` on every API call. |
-| Workspace folder reading | Confined to `WORKSPACE_ROOT` when set; binary, secret and oversized files are skipped, and the mount is read-only in Docker. |
+| API auth | Every API call needs `Authorization: Bearer <token>` (compared with `hmac.compare_digest`); only `/health` and the app shell are public. The token is a 32-byte random value generated on first start into `data/.gateway_token` (`0600` on POSIX, `GATEWAY_TOKEN`/`GATEWAY_TOKEN_FILE` override it). |
+| Workspace folder reading | Confined to `WORKSPACE_ROOT` when set; home directory, drive/filesystem roots and system directories are refused; SSH keys, certificates, `.env`, `credentials*`, `*token*`, `*password*`, key stores and private-key contents are skipped; binary and oversized files are skipped; the mount is read-only in Docker. |
+| Workspace writes | Refused unless `WORKSPACE_ROOT` is configured explicitly, and always confined to it. |
+| Custom provider URLs | `https://` is required for remote hosts (`http://` for localhost only); embedded credentials and link-local/cloud-metadata addresses (`169.254.0.0/16`, `fd00:ec2::254`, also via DNS) are rejected. |
+| File permissions | `gateway_config.json`, `gateway.db` and `data/.gateway_token` are set to `0600` on Linux/macOS; the Docker image runs as non-root UID 10001. |
 | Model code preview | Rendered inside a sandboxed `iframe` with `sandbox="allow-scripts"` and no same-origin access. |
-| Secrets in git | `.env`, `gateway_config.json`, `*.db` and `logs/` are ignored by git and excluded by `.dockerignore`. |
+| Secrets in git | `.env`, `data/` (except `.gitkeep`), `gateway_config.json`, `*.db` and `logs/` are ignored by git and excluded by `.dockerignore`. |
 
 ## If you publish this for others
 
-The defaults assume a single trusted local user. Before exposing the gateway beyond loopback you
-must set `GATEWAY_TOKEN`, keep `ALLOWED_ORIGINS` minimal, and put authentication in front of it.
+The defaults assume a single trusted local user. The token guard is on by default, but before
+exposing the gateway beyond loopback you must also set your own `GATEWAY_TOKEN`, keep
+`ALLOWED_ORIGINS` minimal, terminate TLS in front of it, and add real authentication.
 The gateway has no user accounts and no per-user key isolation — do not share one instance between
 untrusted people. Multi-key rotation is meant to spread your own quota across your own accounts;
 keep it inside each provider's permitted usage.

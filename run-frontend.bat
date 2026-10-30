@@ -1,8 +1,8 @@
 @echo off
-title API FX Prod - Frontend
+title ProxyPal - Frontend
 
 echo ========================================
-echo   API FX Prod - Frontend Server
+echo   ProxyPal - Frontend Server
 echo ========================================
 echo.
 
